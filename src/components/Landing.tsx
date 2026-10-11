@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Building2, ClipboardCheck, ShieldCheck, Users } from 'lucide-react';
+import { ArrowRight, Building2, CheckCircle2, ClipboardCheck, ShieldCheck, Users } from 'lucide-react';
 import type { TabId } from './Header';
 
 const DOORS: { tab: TabId; title: string; text: string; cta: string; Icon: React.FC<{ className?: string }> }[] = [
@@ -14,7 +14,7 @@ export const Landing: React.FC<{ onEnter: (tab: TabId) => void }> = ({ onEnter }
       <div className="max-w-6xl mx-auto px-5 sm:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="text-xl font-extrabold tracking-tight">MATA<span className="text-emerald-300"> HATI</span></div>
-          <button type="button" onClick={() => onEnter('queue')} className="text-sm font-semibold text-white/80 hover:text-white">Lihat demo petugas</button>
+          <button type="button" onClick={() => onEnter('queue')} className="text-sm font-semibold border border-white/40 rounded-lg px-4 py-2 hover:bg-white/10">Lihat demo petugas</button>
         </div>
         <div className="grid lg:grid-cols-[1.15fr_1fr] gap-10 items-center py-12 lg:py-20">
           <div className="space-y-6">
@@ -33,7 +33,7 @@ export const Landing: React.FC<{ onEnter: (tab: TabId) => void }> = ({ onEnter }
               <div className="rounded-2xl bg-slate-50 p-4"><div className="text-xs text-slate-500">Diterima</div><div className="text-4xl font-extrabold text-tinta mt-1">2</div></div>
               <div className="rounded-2xl bg-matahari-soft p-4"><div className="text-xs text-slate-600">Selisih</div><div className="text-4xl font-extrabold text-tinta mt-1">3</div></div>
             </div>
-            <p className="mt-4 text-sm text-slate-600">Satu laporan hanyalah petunjuk. Bila tiga pelapor berbeda menyebut hal serupa pada satu faskes, faskes itu naik ke antrean pemeriksaan.</p>
+            <p className="mt-4 text-base text-slate-600">Satu laporan hanyalah petunjuk. Bila tiga pelapor berbeda menyebut hal serupa pada satu faskes, faskes itu naik ke antrean pemeriksaan.</p>
           </div>
         </div>
       </div>
@@ -46,7 +46,7 @@ export const Landing: React.FC<{ onEnter: (tab: TabId) => void }> = ({ onEnter }
           <button key={tab} type="button" onClick={() => onEnter(tab)} className="text-left rounded-2xl border border-slate-200 p-6 hover:border-emerald-500 hover:shadow-lg transition group">
             <span className="grid place-items-center w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700"><Icon className="w-5 h-5" /></span>
             <div className="mt-4 text-lg font-extrabold text-tinta">{title}</div>
-            <p className="mt-1 text-sm text-slate-600">{text}</p>
+            <p className="mt-2 text-base text-slate-600">{text}</p>
             <div className="mt-4 text-sm font-bold text-emerald-700 flex items-center gap-1.5">{cta}<ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" /></div>
           </button>
         ))}
@@ -66,15 +66,15 @@ export const Landing: React.FC<{ onEnter: (tab: TabId) => void }> = ({ onEnter }
         <div>
           <h2 className="text-2xl font-extrabold text-tinta flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-emerald-700" />Dirancang agar adil</h2>
           <ul className="mt-5 space-y-3 text-slate-700">
-            <li>Sistem tidak pernah menyimpulkan kecurangan; keputusan ada pada petugas.</li>
-            <li>Setiap kasus menyertakan penjelasan alternatif yang wajar.</li>
-            <li>Identitas pelapor tidak dibagikan ke faskes.</li>
+            <li className="flex gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" /><span>Sistem tidak pernah menyimpulkan kecurangan; keputusan ada pada petugas.</span></li>
+            <li className="flex gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" /><span>Setiap kasus menyertakan penjelasan alternatif yang wajar.</span></li>
+            <li className="flex gap-3"><CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" /><span>Identitas pelapor tidak dibagikan ke faskes.</span></li>
           </ul>
         </div>
       </div>
     </section>
 
-    <footer className="max-w-6xl mx-auto px-5 sm:px-8 py-8 text-xs text-slate-500">
+    <footer className="max-w-6xl mx-auto px-5 sm:px-8 py-10 text-sm text-slate-600">
       Prototipe peserta BPJS Kesehatan Healthkathon 2026, bukan produk resmi BPJS Kesehatan. Seluruh data di aplikasi ini adalah simulasi.
     </footer>
   </div>
