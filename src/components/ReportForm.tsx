@@ -18,6 +18,13 @@ interface ReportFormProps {
 }
 
 /** Ubah jawaban terarah peserta menjadi kalimat berbahasa peserta (bukan menebak isi klaim). */
+const RID_KEY = 'matahati.reporter.v1';
+/** Satu ID pelapor per perangkat, supaya mengirim berkali-kali dari perangkat yang sama tidak dihitung sebagai pelapor berbeda. */
+function getReporterId(): string {
+  const fresh = () => `RPT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  try { let v = localStorage.getItem(RID_KEY); if (!v) { v = fresh(); localStorage.setItem(RID_KEY, v); } return v; } catch { return fresh(); }
+}
+
 function answerToStory(c: DummyClaim, a: Answer): string {
   const n = a.n.trim();
   const num = Number(n);
@@ -128,7 +135,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, isDemoMode, newC
         input_by: inputBy,
         input_type: 'TEXT',
         patient_statement: finalStory,
-        reporter_id: `RPT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+        reporter_id: getReporterId(),
         visual_evidence: photo ? { uploaded: true, file_name: photo.name } : undefined,
         verification_status: 'NEW',
         audit_log: [{ timestamp: now, user_role: 'Sistem MATA HATI', action: 'SUBMITTED', note: `Laporan diterima untuk ${claim.facility_name}. Hasil awal: ${triage.status}.` }],
