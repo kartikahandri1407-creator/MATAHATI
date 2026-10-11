@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Header, TabId } from './components/Header';
+import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
 import { ReportForm } from './components/ReportForm';
 import { DataMaster } from './components/DataMaster';
@@ -26,7 +27,7 @@ export default function App() {
   const claims = useCollection<DummyClaim>('claims');
   const facilities = useCollection<Facility>('facilities');
 
-  const [activeTab, setActiveTab] = useState<TabId>('report');
+  const [activeTab, setActiveTab] = useState<TabId>('home');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
@@ -69,6 +70,8 @@ export default function App() {
   const open = (c: CaseRecord) => setSelectedCaseId(c.case_id);
   const dbError = cases.error || claims.error || facilities.error;
 
+  if (activeTab === 'home') return <Landing onEnter={setActiveTab} />;
+
   return (
     <div className="min-h-screen flex flex-col font-sans text-slate-900 antialiased">
       <Header
@@ -80,7 +83,7 @@ export default function App() {
       />
       {dbError && <div className="bg-rose-50 border-b border-rose-200 text-rose-800 text-sm px-4 py-2" role="alert">{dbError}</div>}
 
-      <main className="flex-1 pb-16" key={activeTab}>
+      <main className="flex-1 pb-16 md:pl-64" key={activeTab}>
         <div className="page">
         {cases.loading || claims.loading || facilities.loading ? (
           <div className="max-w-2xl mx-auto px-4 py-10 space-y-4" aria-busy="true" aria-label="Memuat data">
@@ -135,7 +138,7 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="bg-white border-t border-slate-200 py-5 text-xs text-slate-500">
+      <footer className="md:pl-64 bg-white border-t border-slate-200 py-5 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span><b className="text-slate-800">MATA HATI</b> · Monitoring &amp; Audit Tindakan FAskes Berbasis Hak &amp; Aspirasi PeserTa Integratif · Prototipe Healthkathon BPJS Kesehatan 2026 · semua data fiktif</span>
           <span>Hasil hanya prioritas pemeriksaan; keputusan ada pada petugas.</span>

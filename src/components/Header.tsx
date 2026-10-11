@@ -1,7 +1,7 @@
 import React from 'react';
-import { Building2, BarChart3, ClipboardCheck, Database, FilePlus2, Info, ListChecks, Type } from 'lucide-react';
+import { Building2, BarChart3, ClipboardCheck, Database, FilePlus2, Home, Info, ListChecks, Type } from 'lucide-react';
 
-export type TabId = 'report' | 'mine' | 'queue' | 'faskes' | 'master' | 'eval' | 'about';
+export type TabId = 'home' | 'report' | 'mine' | 'queue' | 'faskes' | 'master' | 'eval' | 'about';
 
 interface HeaderProps {
   activeTab: TabId;
@@ -32,11 +32,7 @@ const GROUPS: { label: string; tabs: { id: TabId; label: string; short: string; 
 ];
 
 export const Logo: React.FC<{ className?: string }> = ({ className = 'w-9 h-9' }) => (
-  <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-    <rect width="40" height="40" rx="10" fill="#17654a" />
-    <path d="M5 20c4-6.5 9.5-9.5 15-9.5S31 13.500 35 20c-4 6.500-9.500 9.500-15 9.500S9 26.500 5 20Z" fill="none" stroke="#fff" strokeWidth="2.200" strokeLinejoin="round" />
-    <path d="M20 25.200c-3.600-2.600-5.200-4.300-5.200-6.200 0-1.500 1.100-2.600 2.600-2.600 1 0 1.900.5 2.600 1.500.7-1 1.600-1.500 2.600-1.500 1.500 0 2.600 1.100 2.600 2.600 0 1.900-1.600 3.600-5.200 6.200Z" fill="#f0b429" />
-  </svg>
+  <span className={`${className} grid place-items-center rounded-lg bg-tinta text-white font-extrabold text-xs`} aria-hidden="true">MH</span>
 );
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, isDemoMode, setIsDemoMode, highAttentionCount, openCount, backend, geminiConfigured, largeText, setLargeText }) => {
@@ -44,44 +40,37 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, isDemoM
   const aiDot = isDemoMode || geminiConfigured === false ? 'bg-matahari' : geminiConfigured ? 'bg-emerald-300' : 'bg-white/40';
   return (
     <>
-      <header className="bg-tinta text-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 h-16">
-            <button type="button" onClick={() => setActiveTab('report')} className="flex items-center gap-3 shrink-0 text-left" aria-label="MATA HATI, ke beranda">
-              <Logo />
-              <div className="leading-tight">
-                <div className="font-extrabold tracking-tight text-lg">MATA HATI</div>
-                <div className="text-xs text-white/60 hidden 2xl:block">Peserta tahu haknya, petugas tahu prioritasnya</div>
-              </div>
-            </button>
-            <nav className="hidden md:flex items-center gap-3" aria-label="Menu utama">
-              {GROUPS.map((g, gi) => (
-                <div key={g.label} className={`flex items-center gap-1 ${gi > 0 ? 'pl-3 border-l border-white/15' : ''}`}>
-                  <span className="hidden 2xl:block text-[10px] uppercase tracking-widest text-white/40 mr-1.5">{g.label}</span>
-                  {g.tabs.map(({ id, label, Icon }) => (
-                    <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined}
-                      className={`px-2.5 py-2 rounded-lg text-sm font-semibold flex items-center gap-1.5 whitespace-nowrap transition-colors ${activeTab === id ? 'bg-white text-tinta' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                      <Icon className="w-4 h-4" />{label}
-                      {id === 'queue' && openCount > 0 && <span className={`text-xs px-1.5 rounded font-bold ${activeTab === id ? 'bg-matahari text-tinta' : 'bg-matahari/90 text-tinta'}`}>{openCount}</span>}
-                    </button>
-                  ))}
-                </div>
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 z-40 flex-col bg-tinta text-white">
+        <button type="button" onClick={() => setActiveTab('home')} className="px-6 pt-7 pb-6 text-left" aria-label="MATA HATI, ke beranda">
+          <div className="text-2xl font-extrabold tracking-tight">MATA<span className="text-emerald-400"> HATI</span></div>
+          <div className="text-[11px] text-white/55 mt-1 leading-snug">Prototipe Healthkathon<br />BPJS Kesehatan 2026</div>
+        </button>
+        <nav className="flex-1 overflow-y-auto px-3 space-y-5" aria-label="Menu utama">
+          <button type="button" onClick={() => setActiveTab('home')} className="w-full px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2.5 text-white/75 hover:text-white hover:bg-white/10"><Home className="w-4 h-4" />Beranda</button>
+          {GROUPS.map(g => (
+            <div key={g.label}>
+              <div className="px-3 mb-1.5 text-[10px] uppercase tracking-widest text-white/40">{g.label}</div>
+              {g.tabs.map(({ id, label, Icon }) => (
+                <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined}
+                  className={`w-full px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2.5 transition-colors ${activeTab === id ? 'bg-white text-tinta' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+                  <Icon className="w-4 h-4" />{label}
+                  {id === 'queue' && openCount > 0 && <span className="ml-auto text-xs px-1.5 rounded font-bold bg-matahari text-tinta">{openCount}</span>}
+                </button>
               ))}
-            </nav>
-            <button type="button" onClick={() => setLargeText(!largeText)} aria-pressed={largeText} title="Perbesar teks"
-              className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${largeText ? 'bg-white text-tinta border-white' : 'text-white/80 border-white/25 hover:bg-white/10'}`}>
-              <Type className="w-4 h-4" /><span className="hidden 2xl:inline">Teks besar</span>
-            </button>
-          </div>
+            </div>
+          ))}
+        </nav>
+        <div className="p-4 space-y-2 border-t border-white/10 text-xs text-white/70">
+          <button type="button" onClick={() => setIsDemoMode(!isDemoMode)} className="flex items-center gap-2 hover:text-white" title="Klik untuk ganti antara Gemini dan mesin aturan">
+            <span className={`w-1.5 h-1.5 rounded-full ${aiDot}`} />{aiLabel}
+          </button>
+          {highAttentionCount > 0 && <div className="flex items-center gap-2 text-matahari"><span className="w-1.5 h-1.5 rounded-full bg-matahari" />{highAttentionCount} faskes perlu perhatian</div>}
+          <button type="button" onClick={() => setLargeText(!largeText)} aria-pressed={largeText} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border ${largeText ? 'bg-white text-tinta border-white' : 'border-white/25 hover:bg-white/10'}`}><Type className="w-4 h-4" />Teks besar</button>
         </div>
-        <div className="bg-black/20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-white/75">
-            <button type="button" onClick={() => setIsDemoMode(!isDemoMode)} className="flex items-center gap-1.5 hover:text-white" title="Klik untuk ganti antara Gemini dan mesin lokal">
-              <span className={`w-1.5 h-1.5 rounded-full ${aiDot}`} />{aiLabel}
-            </button>
-            {highAttentionCount > 0 && <span className="hidden sm:flex items-center gap-1.5 text-matahari"><span className="w-1.5 h-1.5 rounded-full bg-matahari" />{highAttentionCount} faskes perlu perhatian</span>}
-          </div>
-        </div>
+      </aside>
+      <header className="md:hidden sticky top-0 z-40 bg-tinta text-white px-4 h-14 flex items-center justify-between">
+        <button type="button" onClick={() => setActiveTab('home')} className="text-lg font-extrabold tracking-tight" aria-label="MATA HATI, ke beranda">MATA<span className="text-emerald-400"> HATI</span></button>
+        <button type="button" onClick={() => setLargeText(!largeText)} aria-pressed={largeText} className="p-2 rounded-lg border border-white/25" title="Perbesar teks"><Type className="w-4 h-4" /></button>
       </header>
 
       {/* Navigasi bawah untuk layar kecil */}
