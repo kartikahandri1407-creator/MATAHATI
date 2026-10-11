@@ -120,7 +120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
                 <p className="text-sm text-white/70 max-w-md">Satu laporan lemah, tetapi beberapa pelapor yang tidak saling kenal menyebut hal serupa. Ini prioritas pemeriksaan, bukan kesimpulan kecurangan.</p>
               </div>
               <div className="relative z-10 rounded-2xl bg-white/10 border border-white/15 p-5 space-y-3">
-                <div><div className="text-xs text-white/70">Nilai klaim terkait yang perlu dicek</div><div className="text-3xl font-extrabold">Rp {topValue.toLocaleString('id-ID')}</div></div>
+                <div><div className="text-xs text-white/70">Total nilai klaim terkait (bukan kerugian)</div><div className="text-3xl font-extrabold">Rp {topValue.toLocaleString('id-ID')}</div></div>
                 <button type="button" onClick={() => topCases[0] && onOpenCaseDetail(topCases[0])} className="w-full h-11 rounded-xl bg-matahari text-tinta font-extrabold hover:brightness-95">Periksa kasus pertama</button>
                 <button type="button" onClick={() => simCase && onSimulateReporter?.(simCase)} className="w-full h-10 rounded-xl border border-white/30 text-white text-sm font-semibold hover:bg-white/10">+ Tambah 1 pelapor simulasi di {sim?.facility_name}</button>
               </div>
