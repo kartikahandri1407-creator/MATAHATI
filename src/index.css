@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Daun: hijau utama, sedikit kebiruan agar tidak terkesan "template hijau" */
+  --color-emerald-50: #eef7f2;
+  --color-emerald-100: #dcefe5;
+  --color-emerald-200: #bcdfce;
+  --color-emerald-300: #8cc9ae;
+  --color-emerald-400: #52a883;
+  --color-emerald-500: #2b8a66;
+  --color-emerald-600: #1f7857;
+  --color-emerald-700: #17654a;
+  --color-emerald-800: #12513c;
+  --color-emerald-900: #0f3f30;
+  --color-emerald-950: #0a2a21;
+
+  /* Netral kehijauan, menggantikan abu-abu biru */
+  --color-slate-50: #f4f6f3;
+  --color-slate-100: #e9eee9;
+  --color-slate-200: #d9e0da;
+  --color-slate-300: #bcc7be;
+  --color-slate-400: #8d9b91;
+  --color-slate-500: #66756b;
+  --color-slate-600: #4c5b51;
+  --color-slate-700: #384539;
+  --color-slate-800: #243127;
+  --color-slate-900: #14231d;
+
+  --color-tinta: #0f2e2b;
+  --color-kertas: #f4f6f3;
+  --color-matahari: #f0b429;
+  --color-matahari-soft: #fdf3d8;
+  --color-karang: #c8483b;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { background: radial-gradient(1000px 420px at 50% -120px, #cfe8dc, transparent 70%), var(--color-kertas); color: var(--color-slate-900); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 3px solid var(--color-matahari); outline-offset: 2px; border-radius: 6px; }
+
+/* Struk: kartu "yang tercatat atas nama Anda" dengan tepi bergerigi */
+.struk { position: relative; background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 1px 0 rgba(15,46,43,.06), 0 12px 24px -16px rgba(15,46,43,.35); }
+.struk::after { content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
+  background: linear-gradient(-45deg, transparent 7px, #fff 0) 0 0/14px 10px, linear-gradient(45deg, transparent 7px, #fff 0) 0 0/14px 10px; filter: drop-shadow(0 6px 4px rgba(15,46,43,.08)); }
+.struk-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px dashed var(--color-slate-300); }
+.struk-row:first-child { border-top: 0; }
+
+/* Cap "Diterima": satu momen gerak, hanya saat jawaban dikirim */
+@keyframes cap { 0% { opacity: 0; transform: rotate(-12deg) scale(1.6); } 60% { opacity: 1; transform: rotate(-6deg) scale(.96); } 100% { opacity: 1; transform: rotate(-6deg) scale(1); } }
+.cap { animation: cap .45s cubic-bezier(.2,.8,.3,1) both; }
+@media (prefers-reduced-motion: reduce) { .cap { animation: none; transform: rotate(-6deg); } }
+
+/* Laci detail kasus, toast, perpindahan halaman */
+@keyframes slide-in { from { transform: translateX(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+.drawer { animation: slide-in .22s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.toast { animation: toast-in .2s ease-out both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.page { animation: page-in .25s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .drawer, .toast, .page { animation: none; } }
+html.teks-besar { font-size: 112.5%; }
+body { padding-bottom: env(safe-area-inset-bottom); }
+@media (max-width: 767px) { main { padding-bottom: 5.5rem; } }
+
+.hero { background: linear-gradient(135deg, #0f2e2b 0%, #17654a 60%, #2b8a66 100%); box-shadow: 0 18px 40px -22px rgba(15,46,43,.7); position: relative; overflow: hidden; }
+.hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(240,180,41,.35), transparent 70%); }
+
+.hero::after { z-index: 0; pointer-events: none; }
+.hero > * { position: relative; z-index: 1; }

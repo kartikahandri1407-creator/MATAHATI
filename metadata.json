@@ -1,0 +1,7 @@
+{
+  "name": "MATA HATI - AI Risk Triage System",
+  "description": "Pemetaan Tindakan Fasilitas Kesehatan dari Cerita Pasien - AI-Powered Early Warning & Risk Triage System untuk BPJS Kesehatan Healthkathon 2026.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

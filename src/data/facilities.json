@@ -1,0 +1,37 @@
+[
+  {
+    "facility_id": "FK-DUMMY-01",
+    "facility_name": "RSUD Sehat Sentosa",
+    "facility_type": "RSUD_KELAS_B",
+    "city": "Kota Bandung",
+    "province": "Jawa Barat"
+  },
+  {
+    "facility_id": "FK-DUMMY-02",
+    "facility_name": "RS Permata Bunda",
+    "facility_type": "RS_SWASTA",
+    "city": "Kota Semarang",
+    "province": "Jawa Tengah"
+  },
+  {
+    "facility_id": "FK-DUMMY-03",
+    "facility_name": "RS Graha Medika",
+    "facility_type": "RS_SWASTA",
+    "city": "Kota Surabaya",
+    "province": "Jawa Timur"
+  },
+  {
+    "facility_id": "FK-DUMMY-04",
+    "facility_name": "Klinik Pratama Mitra Asih",
+    "facility_type": "KLINIK_PRATAMA",
+    "city": "Kabupaten Bogor",
+    "province": "Jawa Barat"
+  },
+  {
+    "facility_id": "FK-DUMMY-05",
+    "facility_name": "Puskesmas Sukamaju",
+    "facility_type": "PUSKESMAS",
+    "city": "Kota Depok",
+    "province": "Jawa Barat"
+  }
+]
