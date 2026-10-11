@@ -15,6 +15,7 @@ interface DashboardProps {
   onDeleteCase?: (caseId: string) => void;
   onExportJSON?: () => void;
   onLoadHeroCase?: () => void;
+  onSimulateReporter?: (c: CaseRecord) => void;
 }
 
 const TRIAGE_CHIP: Record<TriageStatus, string> = {
@@ -42,7 +43,7 @@ const Kpi: React.FC<{ icon: React.ReactNode; label: string; value: number; hint:
   </button>
 );
 
-export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, onOpenCaseDetail, onOpenNewReport, onResetSeedData, onDeleteCase, onExportJSON, onLoadHeroCase }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, onOpenCaseDetail, onOpenNewReport, onResetSeedData, onDeleteCase, onExportJSON, onLoadHeroCase, onSimulateReporter }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [group, setGroup] = useState<'ALL' | QueueGroup>('ALL');
   const [filterRiskType, setFilterRiskType] = useState('ALL');
@@ -68,6 +69,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
   const top = [...facilityPatterns].sort((a, b) => b.signal_count - a.signal_count)[0];
   const topCases = top ? cases.filter(c => top.case_ids.includes(c.case_id)) : [];
   const topValue = topCases.reduce((n, c) => n + (Number((c.claim_evidence as any)?.total_claim_amount) || 0), 0);
+
+  const sim = [...facilityPatterns].filter(p => p.attention_level !== 'TINGGI').sort((a, b) => b.signal_count - a.signal_count)[0] || top;
+  const simCase = sim ? cases.find(c => sim.case_ids.includes(c.case_id)) : undefined;
 
   const pills: { id: 'ALL' | QueueGroup; label: string; n: number }[] = [
     { id: 'ALL', label: 'Semua', n: cases.length },
@@ -118,6 +122,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
               <div className="relative z-10 rounded-2xl bg-white/10 border border-white/15 p-5 space-y-3">
                 <div><div className="text-xs text-white/70">Nilai klaim terkait yang perlu dicek</div><div className="text-3xl font-extrabold">Rp {topValue.toLocaleString('id-ID')}</div></div>
                 <button type="button" onClick={() => topCases[0] && onOpenCaseDetail(topCases[0])} className="w-full h-11 rounded-xl bg-matahari text-tinta font-extrabold hover:brightness-95">Periksa kasus pertama</button>
+                <button type="button" onClick={() => simCase && onSimulateReporter?.(simCase)} className="w-full h-10 rounded-xl border border-white/30 text-white text-sm font-semibold hover:bg-white/10">+ Tambah 1 pelapor simulasi di {sim?.facility_name}</button>
               </div>
             </section>
           )}

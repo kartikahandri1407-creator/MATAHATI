@@ -76,7 +76,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, isDemoM
         </div>
         <div className="bg-black/20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-white/75">
-            <span className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full ${backend === 'database' ? 'bg-emerald-300' : 'bg-white/40'}`} />{backend === 'database' ? 'Terhubung ke basis data' : backend === 'browser' ? 'Mode lokal' : 'Memeriksa data...'}</span>
             <button type="button" onClick={() => setIsDemoMode(!isDemoMode)} className="flex items-center gap-1.5 hover:text-white" title="Klik untuk ganti antara Gemini dan mesin lokal">
               <span className={`w-1.5 h-1.5 rounded-full ${aiDot}`} />{aiLabel}
             </button>

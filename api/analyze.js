@@ -547,6 +547,7 @@ TUGAS:
 Ekstrak evidence peserta dari cerita, bandingkan dengan data klaim, berikan interpretasi objektif, dan sertakan penjelasan alternatif yang spesifik dan tidak menuduh. Tetapkan status:
 - CONSISTENT: cerita selaras dengan klaim (termasuk istilah awam seperti "disinar" = rontgen).
 - INSUFFICIENT_EVIDENCE: cerita terlalu singkat/ambigu, tidak menyebut obat/tindakan/jumlah yang spesifik, atau tidak ada pembanding.
+PENGECUALIAN: cerita dapat berupa jawaban terarah atas pertanyaan tentang klaim di atas (mis. "menerima 2 obat", "dirawat 3 hari", "datang 1 kali"). Angka atau pilihan yang jelas pada jawaban seperti itu SUDAH spesifik: isi received_quantity / length_of_stay_days / actual_visits_count dengan angkanya, bandingkan dengan klaim, dan JANGAN memakai INSUFFICIENT_EVIDENCE hanya karena nama obat atau tindakan tidak disebut ulang.
 - POTENTIAL_DISCREPANCY: ada perbedaan tetapi belum kuat.
 - RISK_SIGNAL: ketidaksesuaian jelas dan spesifik (misal jumlah obat diterima lebih sedikit dari klaim; pasien sadar penuh dan menyangkal tindakan tertentu).
 Jangan mengisi nilai yang tidak disebut peserta; gunakan null.

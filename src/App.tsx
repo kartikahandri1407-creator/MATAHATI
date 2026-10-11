@@ -110,6 +110,12 @@ export default function App() {
             onDeleteCase={id => { cases.remove(id); if (selectedCaseId === id) setSelectedCaseId(null); notify(`Kasus ${id} dihapus`); }}
             onExportJSON={handleExportJSON}
             onLoadHeroCase={() => { cases.reset(); notify('Data contoh dikembalikan'); }}
+            onSimulateReporter={t => {
+              const at = new Date().toISOString();
+              cases.add({ ...t, case_id: nextCaseId(cases.items), reporter_id: `RPT-SIM-${Math.random().toString(36).slice(2, 6).toUpperCase()}`, verification_status: 'NEW', facility_response: undefined, created_at: at,
+                audit_log: [{ timestamp: at, user_role: 'Sistem MATA HATI', action: 'SUBMITTED', note: 'Pelapor simulasi untuk demo pola faskes.' }] });
+              notify('Pelapor simulasi ditambahkan. Perhatikan tingkat perhatian faskes.');
+            }}
           />
         ) : activeTab === 'faskes' ? (
           <FaskesPortal cases={cases.items} claims={claims.items} facilities={facilities.items}
