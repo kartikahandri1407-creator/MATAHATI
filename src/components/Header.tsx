@@ -43,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, isDemoM
       <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 z-40 flex-col bg-tinta text-white">
         <button type="button" onClick={() => setActiveTab('home')} className="px-6 pt-7 pb-6 text-left" aria-label="MATA HATI, ke beranda">
           <div className="text-2xl font-extrabold tracking-tight">MATA<span className="text-emerald-400"> HATI</span></div>
-          <div className="text-[11px] text-white/55 mt-1 leading-snug">Prototipe Healthkathon<br />BPJS Kesehatan 2026</div>
+          <div className="text-[11px] text-white/55 mt-1 leading-snug">Konfirmasi layanan JKN<br />Data simulasi</div>
         </button>
         <nav className="flex-1 overflow-y-auto px-3 space-y-5" aria-label="Menu utama">
           <button type="button" onClick={() => setActiveTab('home')} className="w-full px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2.5 text-white/75 hover:text-white hover:bg-white/10"><Home className="w-4 h-4" />Beranda</button>
