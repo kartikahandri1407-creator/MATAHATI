@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { CaseRecord, Facility, FacilityPattern, TriageStatus } from '../types/matahati';
 import { FacilityPatternCard } from './FacilityPatternCard';
 import { RISK_LABEL } from '../data/claimUtils';
+import { PriorityScore } from '../services/priorityScore';
+import { summarizeOutcomes } from '../data/outcomes';
 import { PRIORITY_LABEL, QueueGroup, TRIAGE_LABEL, VERIFICATION_LABEL, queueGroup, sortQueue } from '../data/workflow';
 import { Building2, ChevronRight, Download, FileSpreadsheet, Inbox, Loader2, Plus, CheckCircle2, Search, Trash2, ShieldAlert } from 'lucide-react';
 
@@ -9,6 +11,7 @@ interface DashboardProps {
   cases: CaseRecord[];
   facilityPatterns: FacilityPattern[];
   facilities: Facility[];
+  scores?: Record<string, PriorityScore>;
   onOpenCaseDetail: (caseRecord: CaseRecord) => void;
   onOpenNewReport: () => void;
   onResetSeedData: () => void;
@@ -43,11 +46,13 @@ const Kpi: React.FC<{ icon: React.ReactNode; label: string; value: number; hint:
   </button>
 );
 
-export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, onOpenCaseDetail, onOpenNewReport, onResetSeedData, onDeleteCase, onExportJSON, onLoadHeroCase, onSimulateReporter }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, scores, onOpenCaseDetail, onOpenNewReport, onResetSeedData, onDeleteCase, onExportJSON, onLoadHeroCase, onSimulateReporter }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [group, setGroup] = useState<'ALL' | QueueGroup>('ALL');
   const [filterRiskType, setFilterRiskType] = useState('ALL');
   const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const outcomes = useMemo(() => summarizeOutcomes(cases), [cases]);
 
   const counts = useMemo(() => ({
     open: cases.filter(c => queueGroup(c.verification_status) === 'OPEN').length,
@@ -56,7 +61,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
     verify: cases.filter(c => c.status === 'RISK_SIGNAL' && queueGroup(c.verification_status) !== 'DONE').length
   }), [cases]);
 
-  const visible = useMemo(() => sortQueue(cases).filter(c => {
+  const visible = useMemo(() => sortQueue(cases, scores ? (x => scores[x.case_id]?.total ?? 0) : undefined).filter(c => {
     if (group !== 'ALL' && queueGroup(c.verification_status) !== group) return false;
     if (filterRiskType !== 'ALL' && c.risk_type !== filterRiskType) return false;
     if (searchTerm) {
@@ -64,7 +69,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
       return c.case_id.toLowerCase().includes(q) || c.facility_name.toLowerCase().includes(q) || c.patient_statement.toLowerCase().includes(q) || c.reconciliation.finding.toLowerCase().includes(q);
     }
     return true;
-  }), [cases, group, filterRiskType, searchTerm]);
+  }), [cases, scores, group, filterRiskType, searchTerm]);
 
   const top = [...facilityPatterns].sort((a, b) => b.signal_count - a.signal_count)[0];
   const topCases = top ? cases.filter(c => top.case_ids.includes(c.case_id)) : [];
@@ -92,7 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
           {cases.length > 0 && onExportJSON && (
             <button type="button" onClick={onExportJSON} className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium flex items-center gap-1.5"><Download className="w-4 h-4" />Ekspor</button>
           )}
-          {cases.length > 0 && <button type="button" onClick={onResetSeedData} className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium">Kosongkan</button>}
+          {cases.length > 0 && <button type="button" onClick={() => setConfirmClear(true)} className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium">Kosongkan</button>}
           <button type="button" onClick={onOpenNewReport} className="px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold flex items-center gap-1.5"><Plus className="w-4 h-4" />Laporan baru</button>
         </div>
       </div>
@@ -146,6 +151,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
             </section>
           )}
 
+          {(outcomes.faskesAnswered > 0 || outcomes.closed > 0 || outcomes.escalated > 0) && (
+            <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4" aria-label="Hasil pemeriksaan">
+              <div>
+                <h3 className="text-base font-bold text-tinta">Hasil pemeriksaan sejauh ini</h3>
+                <p className="text-xs text-slate-500">Dari {outcomes.total} laporan. Menunjukkan apakah laporan peserta berujung pada penjelasan wajar atau perlu ditindaklanjuti.</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <div className="rounded-xl bg-slate-50 p-3"><div className="text-2xl font-extrabold text-tinta">{outcomes.faskesAnswered}</div><div className="text-xs text-slate-600">faskes sudah menjawab</div></div>
+                <div className="rounded-xl bg-emerald-50 p-3"><div className="text-2xl font-extrabold text-emerald-800">{outcomes.closed}</div><div className="text-xs text-slate-600">kasus ditutup</div></div>
+                <div className="rounded-xl bg-amber-50 p-3"><div className="text-2xl font-extrabold text-amber-800">{outcomes.escalated}</div><div className="text-xs text-slate-600">diteruskan ke lapangan</div></div>
+                <div className="rounded-xl bg-sky-50 p-3"><div className="text-2xl font-extrabold text-sky-800">{outcomes.waitingFaskes}</div><div className="text-xs text-slate-600">menunggu faskes</div></div>
+              </div>
+              {outcomes.faskesAnswered > 0 && <p className="text-sm text-slate-700"><b>{outcomes.benignAnswers}</b> dari {outcomes.faskesAnswered} jawaban faskes berupa penjelasan wajar (sesuai catatan, stok kosong, atau layanan di tempat lain).</p>}
+              {outcomes.reasons.length > 0 && (
+                <ul className="space-y-1.5">
+                  {outcomes.reasons.map(r => (
+                    <li key={r.reason} className="flex items-center gap-3 text-sm">
+                      <span className="w-6 text-right font-bold text-tinta">{r.count}</span>
+                      <span className="flex-1 min-w-0"><span className="block h-2 rounded-full bg-emerald-600/80" style={{ width: `${Math.max(6, (r.count / outcomes.faskesAnswered) * 100)}%` }} /></span>
+                      <span className="w-1/2 text-slate-700">{r.reason}</span>
+                    </li>))}
+                </ul>)}
+              <p className="text-xs text-slate-500">Jawaban faskes belum diverifikasi lapangan; angka ini membantu petugas melihat pola, bukan menyimpulkan.</p>
+            </section>
+          )}
+
           <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filter antrean">
@@ -176,7 +207,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
               <ul className="divide-y divide-slate-100">
                 {visible.map(c => (
                   <li key={c.case_id} className="group relative flex items-stretch hover:bg-slate-50 transition-colors">
-                    <span className={`w-1.5 shrink-0 ${PRIORITY_BAR[c.verification_priority]} ${queueGroup(c.verification_status) === 'DONE' ? 'opacity-30' : ''}`} aria-hidden="true" />
+                    <span className={`w-1.5 shrink-0 ${PRIORITY_BAR[scores?.[c.case_id]?.level ?? c.verification_priority]} ${queueGroup(c.verification_status) === 'DONE' ? 'opacity-30' : ''}`} aria-hidden="true" />
                     <button type="button" onClick={() => onOpenCaseDetail(c)} className="flex-1 min-w-0 text-left px-4 py-3.5 grid gap-x-4 gap-y-1 md:grid-cols-[1.4fr_1.1fr_1fr_.9fr_auto] md:items-center">
                       <div className="min-w-0">
                         <div className="font-semibold text-slate-900 truncate">{c.facility_name}</div>
@@ -185,8 +216,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
                       <div className="text-sm text-slate-700">{RISK_LABEL[c.risk_type]}{c.reconciliation.computed_difference != null && c.status !== 'CONSISTENT' && <div className="text-xs font-bold text-tinta mt-0.5"><span className="px-1.5 py-0.5 rounded bg-matahari-soft">selisih {c.reconciliation.computed_difference} {c.reconciliation.difference_unit || ''}</span></div>}</div>
                       <div><Chip className={TRIAGE_CHIP[c.status]}>{TRIAGE_LABEL[c.status]}</Chip></div>
                       <div className="text-sm">
-                        <span className={`font-semibold ${PRIORITY_TEXT[c.verification_priority]}`}>Prioritas {PRIORITY_LABEL[c.verification_priority].toLowerCase()}</span>
-                        <div className="text-xs text-slate-500">{VERIFICATION_LABEL[c.verification_status]}</div>
+                        <span className={`font-semibold ${PRIORITY_TEXT[scores?.[c.case_id]?.level ?? c.verification_priority]}`}>Prioritas {PRIORITY_LABEL[scores?.[c.case_id]?.level ?? c.verification_priority].toLowerCase()}</span>
+                        <div className="text-xs text-slate-500">{VERIFICATION_LABEL[c.verification_status]}{scores?.[c.case_id] ? ` · indeks ${scores[c.case_id].total}` : ''}</div>
                       </div>
                       <ChevronRight className="hidden md:block w-4 h-4 text-slate-300 group-hover:text-slate-500" />
                     </button>
@@ -200,6 +231,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, o
             )}
           </section>
         </>
+      )}
+
+      {confirmClear && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-4">
+            <div>
+              <h4 className="font-bold text-slate-900">Kosongkan seluruh antrean?</h4>
+              <p className="text-sm text-slate-600 mt-1">Semua {cases.length} laporan akan dihapus dari antrean. Karena data dipakai bersama, ini terlihat oleh semua pengguna. Data contoh bisa dikembalikan setelahnya.</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmClear(false)} className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Batal</button>
+              <button type="button" onClick={() => { setConfirmClear(false); onResetSeedData(); }} className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white">Ya, kosongkan</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {caseToDelete && (

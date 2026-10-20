@@ -25,11 +25,11 @@ export const queueGroup = (s: VerificationStatus): QueueGroup =>
 const PRIORITY_RANK: Record<VerificationPriority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 const GROUP_RANK: Record<QueueGroup, number> = { OPEN: 0, PROGRESS: 1, DONE: 2 };
 
-/** Urutan antrean: yang belum selesai dulu, lalu prioritas, lalu tanggal terbaru. */
-export function sortQueue(cases: CaseRecord[]): CaseRecord[] {
+/** Urutan antrean: yang belum selesai dulu, lalu prioritas (indeks bila ada), lalu tanggal terbaru. */
+export function sortQueue(cases: CaseRecord[], scoreOf?: (c: CaseRecord) => number): CaseRecord[] {
   return [...cases].sort((a, b) =>
     GROUP_RANK[queueGroup(a.verification_status)] - GROUP_RANK[queueGroup(b.verification_status)] ||
-    PRIORITY_RANK[a.verification_priority] - PRIORITY_RANK[b.verification_priority] ||
+    (scoreOf ? scoreOf(b) - scoreOf(a) : PRIORITY_RANK[a.verification_priority] - PRIORITY_RANK[b.verification_priority]) ||
     (b.service_date || '').localeCompare(a.service_date || '')
   );
 }

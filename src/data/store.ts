@@ -75,6 +75,7 @@ export interface Collection<T> {
   error: string | null;
   mode: BackendMode;
   add: (item: T) => Promise<void>;
+  addMany: (items: T[]) => Promise<void>;
   update: (item: T) => Promise<void>;
   remove: (id: string) => Promise<void>;
   reset: () => Promise<void>;   // kembalikan ke data contoh
@@ -150,6 +151,10 @@ export function useCollection<T extends Item>(name: CollectionName): Collection<
   return {
     items, loading, error, mode,
     add: upsert,
+    addMany: (list) => {
+      const ids = new Set(list.map(x => x[idf]));
+      return persist([...list, ...itemsRef.current.filter(x => !ids.has(x[idf]))], () => dbPut(name, list));
+    },
     update: upsert,
     remove: (id) => persist(itemsRef.current.filter(x => x[idf] !== id), () => dbDelete(name, id)),
     clear: () => persist([], () => dbDelete(name)),

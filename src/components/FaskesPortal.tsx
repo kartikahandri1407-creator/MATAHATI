@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CaseRecord, DummyClaim, Facility } from '../types/matahati';
 import { SCENARIO_LABEL, claimSummary } from '../data/claimUtils';
+import { waitingDays } from '../data/outcomes';
 import { Building2, CheckCircle2, Send } from 'lucide-react';
 
 interface Props {
@@ -56,6 +57,13 @@ export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRes
         </select>
       </div>
 
+      {(pending.length > 0 || answered.length > 0) && (
+        <div className="grid grid-cols-2 gap-3 text-center" aria-label="Ringkasan permintaan">
+          <div className="rounded-2xl bg-sky-50 border border-sky-200 p-3"><div className="text-2xl font-extrabold text-sky-800">{pending.length}</div><div className="text-xs text-slate-600">menunggu jawaban Anda</div></div>
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3"><div className="text-2xl font-extrabold text-emerald-800">{answered.length}</div><div className="text-xs text-slate-600">sudah dijawab</div></div>
+        </div>
+      )}
+
       {pending.length === 0 && answered.length === 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2">
           <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
@@ -77,7 +85,7 @@ export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRes
                   <div className="text-xs text-slate-500 font-mono">{claim?.sep_number || c.claim_key} · {c.service_date}</div>
                   <div className="font-bold text-slate-900">{claim ? SCENARIO_LABEL[claim.scenario] : 'Layanan'}</div>
                 </div>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200">Menunggu jawaban</span>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200 whitespace-nowrap">{(() => { const d = waitingDays(c); return d === null ? 'Menunggu jawaban' : d === 0 ? 'Masuk hari ini' : `Menunggu ${d} hari`; })()}</span>
               </div>
               {claim && <div className="bg-slate-50 rounded-lg p-3 text-sm"><div className="text-xs text-slate-500 mb-0.5">Tercatat pada klaim</div><b>{claimSummary(claim)}</b></div>}
               <p className="text-slate-800">{claim ? QUESTION[claim.scenario] : QUESTION.UMUM} Penjelasan Anda membantu kami memastikan pencatatan sudah benar.</p>
@@ -101,6 +109,7 @@ export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRes
             <div className="text-sm">
               <div className="font-semibold text-slate-900">{c.claim_key} · {c.service_date} · sudah dijawab</div>
               <div className="text-slate-600">{c.facility_response?.reason}</div>
+              {c.facility_response?.note && <div className="text-slate-500 text-xs mt-0.5">Catatan: {c.facility_response.note}</div>}
             </div>
           </li>
         ))}

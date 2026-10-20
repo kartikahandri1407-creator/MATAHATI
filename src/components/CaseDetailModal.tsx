@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CaseRecord, VerificationStatus, FacilityPattern } from '../types/matahati';
+import { PriorityScore } from '../services/priorityScore';
+import { PriorityBreakdown } from './PriorityBreakdown';
 import { 
   X, 
   FileText, 
@@ -13,6 +15,7 @@ import {
 interface CaseDetailModalProps {
   caseRecord: CaseRecord;
   facilityPattern?: FacilityPattern;
+  score?: PriorityScore;
   onClose: () => void;
   onUpdateStatus: (updatedCase: CaseRecord) => void;
   onOpenDraftModal: (caseRecord: CaseRecord) => void;
@@ -21,6 +24,7 @@ interface CaseDetailModalProps {
 export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
   caseRecord,
   facilityPattern,
+  score,
   onClose,
   onUpdateStatus,
   onOpenDraftModal
@@ -158,6 +162,8 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 bg-slate-50/50 flex-1">
+          {score && <PriorityBreakdown score={score} />}
+
           {/* Edit Mode Alert */}
           {isEditingData && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 text-xs flex items-center justify-between">

@@ -9,6 +9,13 @@ import { handleDb } from '../src/server/dbHandler';
 import { computeDeterministicReconciliation } from '../src/services/reconciliation';
 import { validateAndSanitizeTriageResult } from '../src/services/validator';
 import { computeFacilityPatterns } from '../src/services/aggregation';
+import { summarizeOutcomes, waitingDays } from '../src/data/outcomes';
+import { scoreCase, levelOf } from '../src/services/priorityScore';
+import { sortQueue } from '../src/data/workflow';
+import demoCasesJson from '../src/data/demoCases.json';
+import demoClaimsJson from '../src/data/dummyClaims.json';
+import demoFacilitiesJson from '../src/data/facilities.json';
+import { CSV_TEMPLATE, importClaimsCsv, parseCsv } from '../src/data/csvImport';
 
 let passed = 0;
 let failed = 0;
@@ -225,6 +232,52 @@ async function main() {
   delete process.env.SUPABASE_URL;
   await dbFn({ method: 'GET', query: { status: '1' }, headers: {} }, { status: (s: number) => ({ json: (j: any) => { sent = { s, j }; } }) });
   check('api/db.js dapat dimuat dan menjawab status', sent?.s === 200 && sent.j.configured === false);
+
+  console.log('Impor CSV');
+  {
+    const ok = importClaimsCsv(CSV_TEMPLATE, [], []);
+    check('templat CSV terbaca: 3 klaim, 1 faskes baru, 0 galat', ok.claims.length === 3 && ok.newFacilities.length === 1 && ok.errors.length === 0, ok.errors);
+    check('klaim obat membawa jumlah tercatat', ok.claims[0].scenario === 'OBAT' && ok.claims[0].claimed_quantity === 5);
+    const idn = importClaimsCsv('nama_pasien,nik,faskes,tanggal_layanan,jenis,jumlah_obat\nBudi Rahasia,3201999,RS A,2026-10-01,obat,3\n', [], []);
+    check('kolom nama dan NIK dibuang', idn.ignoredColumns.length === 2 && idn.claims[0].patient_name === 'Peserta (anonim)' && !JSON.stringify(idn.claims).includes('Budi') && !JSON.stringify(idn.claims).includes('3201999'));
+    const bad = importClaimsCsv('faskes;tanggal_layanan;jenis;jumlah_obat\nRS A;31/02/2026;obat;3\nRS A;2026-10-01;xyz;3\nRS A;2026-10-01;obat;abc\nRS A;01/10/2026;obat;2\n', [], []);
+    check('baris salah ditolak, baris benar tetap masuk (titik koma, tanggal dd/mm/yyyy)', bad.errors.length === 3 && bad.claims.length === 1 && bad.claims[0].service_date === '2026-10-01', bad.errors);
+    const dup = importClaimsCsv('nomor_klaim,faskes,tanggal_layanan,jenis,jumlah_obat\nA1,RS A,2026-10-01,obat,3\nA1,RS A,2026-10-01,obat,3\n', [], []);
+    check('nomor klaim dobel ditolak', dup.claims.length === 1 && dup.errors.length === 1);
+    check('kolom wajib hilang diberi pesan', importClaimsCsv('a,b\n1,2\n', [], []).errors.length > 0);
+    check('kutip dan koma di dalam sel terbaca', parseCsv('a,b\n"x, y",2\n')[1][0] === 'x, y');
+  }
+
+  console.log('Ringkasan hasil');
+  {
+    const mk = (st: string, reason?: string, extra: any = {}) => ({ case_id: cid(), verification_status: st, facility_response: reason ? { reason, note: '', at: '' } : undefined, audit_log: [], ...extra }) as any;
+    const o = summarizeOutcomes([mk('CLOSED_NO_ACTION', 'Stok kosong, obat diserahkan sebagian'), mk('UNDER_REVIEW', 'Salah catat, akan dikoreksi'), mk('ESCALATED_FOR_OFFICIAL_PROCESS'), mk('CLARIFICATION_DRAFTED'), mk('NEW')]);
+    check('hitungan hasil: 5 kasus, 1 ditutup, 1 diteruskan, 1 menunggu, 2 jawaban', o.total === 5 && o.closed === 1 && o.escalated === 1 && o.waitingFaskes === 1 && o.faskesAnswered === 2, o);
+    check('penjelasan wajar dihitung terpisah dari salah catat', o.benignAnswers === 1);
+    check('daftar alasan terurut dan lengkap', o.reasons.length === 2);
+    check('antrean kosong tidak error', summarizeOutcomes([]).total === 0);
+    const now = Date.parse('2026-10-17T00:00:00Z');
+    check('lama menunggu dihitung dari draf surat', waitingDays({ audit_log: [{ timestamp: '2026-10-14T00:00:00Z', action: 'DRAFT_CLARIFICATION_CREATED', user_role: '', note: '' }] } as any, now) === 3);
+    check('tanpa draf surat -> tidak diketahui', waitingDays({ audit_log: [] } as any, now) === null);
+  }
+
+  console.log('Indeks prioritas');
+  {
+    const cs = demoCasesJson as any[], cl = demoClaimsJson as any[], fc = demoFacilitiesJson as any[];
+    const pats = computeFacilityPatterns(cs, fc);
+    const sc = (id: string) => scoreCase(cs.find(c => c.case_id === id), pats, cl);
+    const s1 = sc('MH-2026-0001'), s3 = sc('MH-2026-0003'), s4 = sc('MH-2026-0004'), s5 = sc('MH-2026-0005');
+    check('kasus dengan 3 pelapor berbeda dan selisih besar -> prioritas tinggi (75)', s1.total === 75 && s1.level === 'HIGH', s1);
+    check('konteks lama rawat melewati persentil 75 memberi 16 poin', s3.factors[2].points === 16 && s3.total === 64, s3.factors);
+    check('informasi belum cukup -> indeks 0 (rendah)', s4.total === 0 && s4.level === 'LOW');
+    check('kasus sesuai catatan -> indeks 0', s5.total === 0);
+    const lemah = scoreCase({ ...cs[0], reliability_flag: 'LOW', information_sufficiency: 'PARTIAL' }, pats, cl);
+    check('laporan kurang andal menurunkan indeks dari 75 (pengali 0,5 x 0,85)', lemah.total === Math.round(75 * 0.5 * 0.85) && lemah.total < s1.total, lemah.total);
+    check('indeks selalu 0..100 dan ambang tingkat konsisten', [0, 34, 35, 64, 65, 100].map(levelOf).join() === 'LOW,LOW,MEDIUM,MEDIUM,HIGH,HIGH');
+    const ordered = sortQueue(cs, c => scoreCase(c, pats, cl).total).filter(c => c.verification_status === 'NEW').map(c => scoreCase(c, pats, cl).total);
+    check('antrean terurut menurun menurut indeks dalam kelompok yang sama', ordered.every((v, i) => i === 0 || ordered[i - 1] >= v), ordered);
+    check('tanpa fungsi indeks urutan lama tetap berlaku', sortQueue(cs).length === cs.length);
+  }
 
   console.log(`\n${passed} lulus, ${failed} gagal`);
   process.exit(failed ? 1 : 0);

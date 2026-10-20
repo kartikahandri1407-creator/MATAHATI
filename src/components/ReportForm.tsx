@@ -8,6 +8,8 @@ import { AlertCircle, ArrowRight, Camera, CheckCircle2, Database, HelpCircle, Lo
 
 interface ReportFormProps {
   claims: DummyClaim[];
+  /** Nomor klaim yang sudah dijawab dari perangkat ini. */
+  answeredKeys?: string[];
   isDemoMode: boolean;
   newCaseId: () => string;
   onCaseAnalyzed: (newCase: CaseRecord) => void;
@@ -30,13 +32,13 @@ function answerToStory(c: DummyClaim, a: Answer): string {
   const num = Number(n);
   const okNum = n !== '' && Number.isFinite(num) && num >= 0 && num <= 1_000_000_000;
   switch (c.scenario) {
-    case 'OBAT': return okNum ? `Saya berobat ke ${c.facility_name} pada ${c.service_date}. Di apotek saya menerima ${num} obat.` : '';
+    case 'OBAT': return a.choice === 'ragu' ? `Saya berobat ke ${c.facility_name} pada ${c.service_date}, tetapi saya tidak ingat berapa obat yang saya terima.` : okNum ? `Saya berobat ke ${c.facility_name} pada ${c.service_date}. Di apotek saya menerima ${num} obat.` : '';
     case 'TINDAKAN':
       return a.choice === 'ya' ? `Di ${c.facility_name} saya memang menjalani ${c.procedure_name || 'tindakan itu'}.`
         : a.choice === 'tidak' ? `Di ${c.facility_name} saya tidak pernah menjalani ${c.procedure_name || 'tindakan itu'}.`
         : a.choice === 'ragu' ? `Saya tidak yakin apakah saya menjalani ${c.procedure_name || 'tindakan itu'} di ${c.facility_name}.` : '';
-    case 'LOS': return okNum ? `Saya dirawat di ${c.facility_name} selama ${num} hari.` : '';
-    case 'KUNJUNGAN_FIKTIF': return okNum ? `Saya benar-benar datang ke ${c.facility_name} sebanyak ${num} kali.` : '';
+    case 'LOS': return a.choice === 'ragu' ? `Saya dirawat di ${c.facility_name}, tetapi saya tidak ingat berapa hari.` : okNum ? `Saya dirawat di ${c.facility_name} selama ${num} hari.` : '';
+    case 'KUNJUNGAN_FIKTIF': return a.choice === 'ragu' ? `Saya tidak ingat berapa kali saya datang ke ${c.facility_name}.` : okNum ? `Saya benar-benar datang ke ${c.facility_name} sebanyak ${num} kali.` : '';
     case 'IUR_BIAYA': return okNum ? (num === 0 ? `Di ${c.facility_name} saya tidak membayar apa pun.` : `Di ${c.facility_name} saya membayar tunai Rp ${num.toLocaleString('id-ID')} di kasir.`) : '';
     default: return '';
   }
@@ -56,7 +58,7 @@ const STATUS_TEXT: Record<string, { label: string; cls: string }> = {
   INSUFFICIENT_EVIDENCE: { label: 'Informasi belum cukup', cls: 'text-slate-600' }
 };
 
-export const ReportForm: React.FC<ReportFormProps> = ({ claims, isDemoMode, newCaseId, onCaseAnalyzed, onOpenCaseDetail, onGoToQueue, onGoToMine, onGoToDataMaster }) => {
+export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [], isDemoMode, newCaseId, onCaseAnalyzed, onOpenCaseDetail, onGoToQueue, onGoToMine, onGoToDataMaster }) => {
   const [claimKey, setClaimKey] = useState('');
   const [inputBy, setInputBy] = useState<'PESERTA_MANDIRI' | 'KADER_PENDAMPING'>('PESERTA_MANDIRI');
   const [storyText, setStoryText] = useState('');
@@ -70,6 +72,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, isDemoMode, newC
   const [canDictate, setCanDictate] = useState(false);
   const recRef = useRef<any>(null);
 
+  const doneSet = useMemo(() => new Set(answeredKeys), [answeredKeys]);
+  const tag = (k: string) => (doneSet.has(k) ? ' ✓ sudah dijawab' : '');
   const claim = useMemo(() => claims.find(c => c.claim_key === claimKey) || null, [claims, claimKey]);
   const grouped = useMemo(() => {
     const core = claims.filter(c => CORE_SCENARIOS.includes(c.scenario));
@@ -170,10 +174,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, isDemoMode, newC
           ) : (
             <select id="layanan" aria-label="Pilih klaim" value={claimKey} onChange={e => { setClaimKey(e.target.value); setResult(null); setAns({ n: '', choice: '' }); }} className="w-full rounded-xl border-2 border-slate-300 bg-white p-3.5 text-base focus:border-emerald-700">
               <option value="">Pilih layanan lain</option>
-              {grouped.core.length > 0 && <optgroup label="Obat, tindakan, lama rawat">{grouped.core.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {c.service_date} · {SCENARIO_LABEL[c.scenario]}</option>)}</optgroup>}
+              {grouped.core.length > 0 && <optgroup label="Obat, tindakan, lama rawat">{grouped.core.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {c.service_date} · {SCENARIO_LABEL[c.scenario]}{tag(c.claim_key)}</option>)}</optgroup>}
               {grouped.rest.length > 0 && <optgroup label="Jenis lain (masih eksperimen)">{grouped.rest.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {c.service_date} · {SCENARIO_LABEL[c.scenario]}</option>)}</optgroup>}
             </select>
           )}
+          {claims.length > 0 && (() => { const total = grouped.core.length, done = grouped.core.filter(c => doneSet.has(c.claim_key)).length; return total > 0 ? <p className="text-sm text-slate-500">{done === total ? `Semua ${total} layanan sudah Anda cek. Terima kasih.` : `${done} dari ${total} layanan sudah Anda cek.`}</p> : null; })()}
         </div>
 
         {!claim && claims.length > 0 && (
@@ -207,16 +212,20 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, isDemoMode, newC
         {claim && (
           <section className="space-y-4 pt-2">
             {(() => {
-              const step = (d: number) => setAns({ ...ans, n: String(Math.max(0, (Number(ans.n) || 0) + d)) });
+              const step = (d: number) => setAns({ choice: '', n: String(Math.max(0, (Number(ans.n) || 0) + d)) });
               const num = (q: string, unit: string) => (
                 <div className="space-y-3">
                   <div className="text-xl font-bold text-tinta leading-snug">{q}</div>
                   <div className="flex items-center gap-3">
                     <button type="button" aria-label="Kurangi" onClick={() => step(-1)} className="w-14 h-14 rounded-full border-2 border-emerald-700 text-emerald-800 text-3xl font-bold leading-none hover:bg-emerald-50 active:bg-emerald-100">−</button>
-                    <input aria-label={q} type="number" min={0} inputMode="numeric" value={ans.n} placeholder="0" onChange={e => setAns({ ...ans, n: e.target.value })} className="w-28 h-14 rounded-xl border-2 border-slate-300 bg-white text-center text-3xl font-extrabold text-tinta focus:border-emerald-700" />
+                    <input aria-label={q} type="number" min={0} inputMode="numeric" value={ans.n} placeholder="0" onChange={e => setAns({ choice: '', n: e.target.value })} className="w-28 h-14 rounded-xl border-2 border-slate-300 bg-white text-center text-3xl font-extrabold text-tinta focus:border-emerald-700" />
                     <button type="button" aria-label="Tambah" onClick={() => step(1)} className="w-14 h-14 rounded-full bg-emerald-700 text-white text-3xl font-bold leading-none hover:bg-emerald-800 active:bg-emerald-900">+</button>
                     <span className="text-slate-600">{unit}</span>
                   </div>
+                  {['OBAT', 'LOS', 'KUNJUNGAN_FIKTIF'].includes(claim.scenario) && (
+                    <label className={`flex items-center gap-3 rounded-xl border-2 p-3.5 cursor-pointer font-semibold ${ans.choice === 'ragu' ? 'border-emerald-700 bg-emerald-50 text-emerald-900' : 'border-slate-300 bg-white text-slate-700'}`}>
+                      <input type="checkbox" className="w-5 h-5 accent-emerald-700" checked={ans.choice === 'ragu'} onChange={e => setAns(e.target.checked ? { n: '', choice: 'ragu' } : { n: '', choice: '' })} />Saya tidak ingat
+                    </label>)}
                 </div>);
               if (claim.scenario === 'OBAT') return num('Berapa obat yang Anda terima di apotek?', 'obat');
               if (claim.scenario === 'LOS') return num('Berapa hari Anda dirawat inap?', 'hari');
@@ -275,7 +284,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, isDemoMode, newC
           <div className="flex flex-wrap gap-2 pt-4">
             <button type="button" onClick={() => setShowOfficer(v => !v)} className="px-4 py-2.5 rounded-lg border border-slate-300 font-semibold hover:bg-slate-50">{showOfficer ? 'Sembunyikan' : 'Lihat tampilan petugas'}</button>
             <button type="button" onClick={onGoToMine} className="px-4 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">Pantau laporan saya</button>
-            <button type="button" onClick={reset} className="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50">Cek layanan lain</button>
+            <button type="button" onClick={() => { const next = grouped.core.find(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)); reset(); if (next) setClaimKey(next.claim_key); }} className="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50">{grouped.core.some(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)) ? 'Cek layanan berikutnya' : 'Cek layanan lain'}</button>
           </div>
         </section>
       )}

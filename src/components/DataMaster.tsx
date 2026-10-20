@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { DummyClaim, Facility } from '../types/matahati';
 import { Collection } from '../data/store';
 import { EMPTY_CLAIM, FACILITY_TYPE_LABEL, SCENARIO_LABEL, Scenario, claimSummary } from '../data/claimUtils';
-import { Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { Download, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react';
+import { CSV_TEMPLATE, ImportResult, importClaimsCsv } from '../data/csvImport';
 
 interface Props {
   facilities: Collection<Facility>;
@@ -20,6 +21,25 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
   const [claimForm, setClaimForm] = useState<{ item: DummyClaim; isNew: boolean } | null>(null);
   const [confirm, setConfirm] = useState<{ text: string; run: () => void } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [imp, setImp] = useState<{ name: string; res: ImportResult } | null>(null);
+
+  const onCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; e.target.value = '';
+    if (!f) return;
+    if (f.size > 2_000_000) return setImp({ name: f.name, res: { claims: [], newFacilities: [], errors: ['Berkas terlalu besar (maksimal 2 MB).'], ignoredColumns: [], unknownColumns: [] } });
+    setImp({ name: f.name, res: importClaimsCsv(await f.text(), claims.items, facilities.items) });
+  };
+  const downloadTemplate = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'templat-klaim-mata-hati.csv'; a.click(); URL.revokeObjectURL(a.href);
+  };
+  const runImport = async () => {
+    if (!imp) return;
+    if (imp.res.newFacilities.length) await facilities.addMany(imp.res.newFacilities);
+    await claims.addMany(imp.res.claims);
+    setImp(null); setTab('claims');
+  };
 
   const col = tab === 'facilities' ? facilities : claims;
   const nextId = (prefix: string, existing: string[]) => {
@@ -71,7 +91,11 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {tab === 'claims' && (<>
+            <label className="px-3.5 py-2 rounded-lg border border-slate-300 text-sm font-semibold flex items-center gap-1.5 hover:bg-slate-50 cursor-pointer"><Upload className="w-4 h-4" />Impor CSV<input type="file" accept=".csv,text/csv" onChange={onCsv} className="hidden" /></label>
+            <button type="button" onClick={downloadTemplate} className="px-3.5 py-2 rounded-lg border border-slate-300 text-sm font-semibold flex items-center gap-1.5 hover:bg-slate-50"><Download className="w-4 h-4" />Templat</button>
+          </>)}
           <button type="button" onClick={() => { setFormError(null); tab === 'facilities'
             ? setFacForm({ isNew: true, item: { facility_id: nextId('FK-', facilities.items.map(f => f.facility_id)), facility_name: '', facility_type: 'RS_SWASTA', city: '', province: '' } })
             : setClaimForm({ isNew: true, item: { ...EMPTY_CLAIM(facilities.items[0]?.facility_id, facilities.items[0]?.facility_name), claim_key: nextId('CLM-', claims.items.map(c => c.claim_key)), sep_number: `SEP-${new Date().getFullYear()}-${String(claims.items.length + 1).padStart(4, '0')}` } }); }}
@@ -173,6 +197,28 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
             </>);
           })()}
         </Modal>
+      )}
+
+      {imp && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-xl p-5 max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-3 shadow-xl">
+            <div className="flex items-center justify-between"><h3 className="font-bold text-slate-900">Impor data klaim</h3><button type="button" aria-label="Tutup" onClick={() => setImp(null)} className="p-1 rounded hover:bg-slate-100"><X className="w-4 h-4" /></button></div>
+            <p className="text-xs text-slate-500 font-mono break-all">{imp.name}</p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg bg-emerald-50 p-3"><div className="text-2xl font-extrabold text-emerald-800">{imp.res.claims.length}</div><div className="text-xs text-slate-600">klaim siap masuk</div></div>
+              <div className="rounded-lg bg-slate-50 p-3"><div className="text-2xl font-extrabold text-slate-800">{imp.res.newFacilities.length}</div><div className="text-xs text-slate-600">faskes baru</div></div>
+              <div className="rounded-lg bg-rose-50 p-3"><div className="text-2xl font-extrabold text-rose-700">{imp.res.errors.length}</div><div className="text-xs text-slate-600">baris ditolak</div></div>
+            </div>
+            {imp.res.ignoredColumns.length > 0 && <p className="text-sm text-emerald-800 bg-emerald-50 rounded-lg p-3">Kolom identitas tidak dibaca dan tidak disimpan: <b>{imp.res.ignoredColumns.join(', ')}</b>. Semua klaim masuk sebagai anonim.</p>}
+            {imp.res.unknownColumns.length > 0 && <p className="text-xs text-slate-500">Kolom tidak dikenali (dilewati): {imp.res.unknownColumns.join(', ')}</p>}
+            {imp.res.errors.length > 0 && <ul className="text-sm text-rose-800 list-disc pl-5 space-y-0.5 max-h-40 overflow-y-auto">{imp.res.errors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}{imp.res.errors.length > 20 && <li>dan {imp.res.errors.length - 20} lainnya</li>}</ul>}
+            <p className="text-xs text-slate-500">Gunakan hanya data simulasi atau yang sudah dianonimkan dan diizinkan tertulis.</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setImp(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm">Batal</button>
+              <button type="button" disabled={imp.res.claims.length === 0} onClick={runImport} className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50">Masukkan {imp.res.claims.length} klaim</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirm && (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Header, TabId } from './components/Header';
 import { Landing } from './components/Landing';
 import { Dashboard } from './components/Dashboard';
@@ -10,6 +10,7 @@ import { CaseDetailModal } from './components/CaseDetailModal';
 import { DraftClarificationModal } from './components/DraftClarificationModal';
 import { CaseRecord, DummyClaim, Facility } from './types/matahati';
 import { computeFacilityPatterns } from './services/aggregation';
+import { scoreCase } from './services/priorityScore';
 import { nextCaseId, useCollection } from './data/store';
 import { FaskesPortal } from './components/FaskesPortal';
 import { MyReports } from './components/MyReports';
@@ -56,6 +57,7 @@ export default function App() {
   const draftCase = cases.items.find(c => c.case_id === draftCaseId) || null;
 
   const facilityPatterns = computeFacilityPatterns(cases.items, facilities.items);
+  const scores = useMemo(() => Object.fromEntries(cases.items.map(c => [c.case_id, scoreCase(c, facilityPatterns, claims.items)])), [cases.items, claims.items, facilityPatterns]);
   const mine = cases.items.filter(c => c.reporter_id && mineIds.includes(c.reporter_id));
   const openCount = cases.items.filter(c => queueGroup(c.verification_status) === 'OPEN').length;
   const highAttentionCount = facilityPatterns.filter(p => p.attention_level === 'TINGGI').length;
@@ -91,7 +93,7 @@ export default function App() {
           </div>
         ) : activeTab === 'report' ? (
           <ReportForm
-            claims={claims.items} isDemoMode={isDemoMode}
+            claims={claims.items} answeredKeys={mine.map(c => c.claim_key)} isDemoMode={isDemoMode}
             newCaseId={() => nextCaseId(cases.items)}
             onCaseAnalyzed={c => {
               cases.add(c);
@@ -107,7 +109,7 @@ export default function App() {
           <MyReports cases={mine} claims={claims.items} onNew={() => setActiveTab('report')} />
         ) : activeTab === 'queue' ? (
           <Dashboard
-            cases={cases.items} facilityPatterns={facilityPatterns} facilities={facilities.items}
+            cases={cases.items} facilityPatterns={facilityPatterns} facilities={facilities.items} scores={scores}
             onOpenCaseDetail={open} onOpenNewReport={() => setActiveTab('report')}
             onResetSeedData={() => { cases.clear(); notify('Antrean dikosongkan'); }}
             onDeleteCase={id => { cases.remove(id); if (selectedCaseId === id) setSelectedCaseId(null); notify(`Kasus ${id} dihapus`); }}
@@ -148,6 +150,7 @@ export default function App() {
       {selectedCase && (
         <CaseDetailModal
           caseRecord={selectedCase}
+          score={scores[selectedCase.case_id]}
           facilityPattern={facilityPatterns.find(p => p.facility_id === selectedCase.facility_id && p.risk_type === selectedCase.risk_type)}
           onClose={() => setSelectedCaseId(null)}
           onUpdateStatus={c => { cases.update(c); notify('Perubahan disimpan'); }}
