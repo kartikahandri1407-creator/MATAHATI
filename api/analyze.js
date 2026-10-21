@@ -428,6 +428,7 @@ function validateAndSanitizeTriageResult(raw) {
     fraud_determination: "NOT_DETERMINED",
     // ATURAN 1: selalu NOT_DETERMINED
     ai_interpretation: raw.ai_interpretation || "Interpretasi otomatis MATA HATI.",
+    ...Array.isArray(raw.evidence_quotes) && raw.evidence_quotes.length ? { evidence_quotes: raw.evidence_quotes.filter((q) => q && typeof q.quote === "string").slice(0, 5).map((q) => ({ quote: q.quote.slice(0, 160), supports: String(q.supports || "").slice(0, 120) })) } : {},
     processing_source: raw.processing_source
   };
   if (raw.fraud_determination && raw.fraud_determination !== "NOT_DETERMINED") {
@@ -459,6 +460,32 @@ function validateAndSanitizeTriageResult(raw) {
     errors,
     sanitizedResult: sanitized
   };
+}
+
+// src/services/evidenceQuotes.ts
+var MAX_QUOTES = 5;
+var esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var finder = (quote) => new RegExp(esc(quote.trim()).replace(/\s+/g, "\\s+"), "i");
+function verifyQuotes(story, quotes) {
+  const kept = [];
+  let rejected = 0;
+  if (!Array.isArray(quotes)) return { kept, rejected };
+  for (const q of quotes) {
+    const quote = typeof q?.quote === "string" ? q.quote.trim() : "";
+    if (quote.length < 3 || quote.length > 160) {
+      rejected++;
+      continue;
+    }
+    const m = finder(quote).exec(story);
+    if (!m) {
+      rejected++;
+      continue;
+    }
+    if (kept.some((k) => k.quote === m[0])) continue;
+    kept.push({ quote: m[0], supports: (typeof q.supports === "string" ? q.supports : "").replace(/[\u0000-\u001f<>]/g, " ").trim().slice(0, 120) });
+    if (kept.length >= MAX_QUOTES) break;
+  }
+  return { kept, rejected };
 }
 
 // src/server/analyzeCore.ts
@@ -579,8 +606,10 @@ WAJIB:
   "information_sufficiency": "SUFFICIENT" | "PARTIAL" | "INSUFFICIENT",
   "recommended_verification": string[],
   "fraud_determination": "NOT_DETERMINED",
-  "ai_interpretation": string
+  "ai_interpretation": string,
+  "evidence_quotes": [{ "quote": string (kutipan PERSIS, kata demi kata, dari isi <patient_story>; maksimal 5, masing-masing paling banyak 160 karakter), "supports": string (apa yang dibuktikan kutipan itu, misalnya "jumlah obat yang diterima") }]
 }
+Aturan evidence_quotes: salin kalimat peserta apa adanya. Jangan merangkum atau mengubah kata. Bila tidak ada kalimat yang relevan, isi [].
 `;
 }
 async function runAnalysis(input) {
@@ -678,6 +707,9 @@ async function runAnalysis(input) {
   const modelRel = typeof parsed.reliability_flag === "string" && parsed.reliability_flag in RANK ? parsed.reliability_flag : "MEDIUM";
   parsed.reliability_flag = RANK[rel.flag] <= RANK[modelRel] ? rel.flag : modelRel;
   parsed.reliability_notes = Array.from(/* @__PURE__ */ new Set([...Array.isArray(parsed.reliability_notes) ? parsed.reliability_notes : [], ...rel.notes]));
+  const vq = verifyQuotes(story, parsed.evidence_quotes);
+  parsed.evidence_quotes = vq.kept;
+  if (vq.rejected > 0) parsed.reliability_notes.push(`${vq.rejected} kutipan dari AI dibuang karena tidak ditemukan di cerita peserta.`);
   parsed.processing_source = "GEMINI_SERVER_PROXY";
   const modelSaysDiscrepancy = parsed.status === "RISK_SIGNAL" || parsed.status === "POTENTIAL_DISCREPANCY";
   const codeFindsDiscrepancy = det.different_fields.some((f) => f !== "service_date");

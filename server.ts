@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { runAnalysis } from './src/server/analyzeCore';
 import { handleDb } from './src/server/dbHandler';
+import { runAsk } from './src/server/askCore';
 
 dotenv.config();
 
@@ -34,6 +35,12 @@ async function startServer() {
   // Proxy Gemini: logika sama persis dengan Vercel (src/server/analyzeCore.ts)
   app.post('/api/analyze', async (req, res) => {
     const out = await runAnalysis({ body: req.body, apiKey: process.env.GEMINI_API_KEY, clientId: clientIdOf(req) });
+    res.status(out.status).json(out.json);
+  });
+
+  // Tanya-jawab petugas: model hanya menerjemahkan pertanyaan (tanpa data kasus)
+  app.post('/api/ask', async (req, res) => {
+    const out = await runAsk({ body: req.body, apiKey: process.env.GEMINI_API_KEY, clientId: clientIdOf(req) });
     res.status(out.status).json(out.json);
   });
 

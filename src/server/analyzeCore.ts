@@ -15,6 +15,7 @@ import { SCENARIO_KNOWLEDGE } from '../ai/scenarioKnowledge';
 import { computeDeterministicReconciliation } from '../services/reconciliation';
 import { evaluateReliability } from '../services/reliability';
 import { validateAndSanitizeTriageResult } from '../services/validator';
+import { verifyQuotes } from '../services/evidenceQuotes';
 
 export interface CoreResponse {
   status: number;
@@ -168,8 +169,10 @@ WAJIB:
   "information_sufficiency": "SUFFICIENT" | "PARTIAL" | "INSUFFICIENT",
   "recommended_verification": string[],
   "fraud_determination": "NOT_DETERMINED",
-  "ai_interpretation": string
+  "ai_interpretation": string,
+  "evidence_quotes": [{ "quote": string (kutipan PERSIS, kata demi kata, dari isi <patient_story>; maksimal 5, masing-masing paling banyak 160 karakter), "supports": string (apa yang dibuktikan kutipan itu, misalnya "jumlah obat yang diterima") }]
 }
+Aturan evidence_quotes: salin kalimat peserta apa adanya. Jangan merangkum atau mengubah kata. Bila tidak ada kalimat yang relevan, isi [].
 `;
 }
 
@@ -294,6 +297,11 @@ export async function runAnalysis(input: AnalyzeInput): Promise<CoreResponse> {
   parsed.reliability_notes = Array.from(new Set([...(Array.isArray(parsed.reliability_notes) ? parsed.reliability_notes : []), ...rel.notes]));
 
   // --- Pertentangan model vs kode: tidak memilih salah satunya secara diam-diam ---
+  // Kutipan bukti: hanya yang benar-benar ada di cerita yang dipertahankan (kutipan karangan dibuang oleh kode)
+  const vq = verifyQuotes(story, parsed.evidence_quotes);
+  parsed.evidence_quotes = vq.kept;
+  if (vq.rejected > 0) parsed.reliability_notes.push(`${vq.rejected} kutipan dari AI dibuang karena tidak ditemukan di cerita peserta.`);
+
   parsed.processing_source = 'GEMINI_SERVER_PROXY';
   const modelSaysDiscrepancy = parsed.status === 'RISK_SIGNAL' || parsed.status === 'POTENTIAL_DISCREPANCY';
   const codeFindsDiscrepancy = det.different_fields.some(f => f !== 'service_date');

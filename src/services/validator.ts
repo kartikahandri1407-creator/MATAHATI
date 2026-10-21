@@ -87,6 +87,9 @@ export function validateAndSanitizeTriageResult(raw: Partial<TriageResult>): Val
     recommended_verification: strings(raw.recommended_verification),
     fraud_determination: 'NOT_DETERMINED', // ATURAN 1: selalu NOT_DETERMINED
     ai_interpretation: raw.ai_interpretation || 'Interpretasi otomatis MATA HATI.',
+    ...(Array.isArray(raw.evidence_quotes) && raw.evidence_quotes.length
+      ? { evidence_quotes: raw.evidence_quotes.filter(q => q && typeof q.quote === 'string').slice(0, 5).map(q => ({ quote: q.quote.slice(0, 160), supports: String(q.supports || '').slice(0, 120) })) }
+      : {}),
     processing_source: raw.processing_source
   };
 

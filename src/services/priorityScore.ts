@@ -6,7 +6,7 @@
  * Indeks hanya mengurutkan pemeriksaan. Tidak menyatakan kecurangan; petugas yang memutuskan.
  */
 import { CaseRecord, DummyClaim, FacilityPattern, VerificationPriority } from '../types/matahati';
-import { REF_NOTE, lookupLosRef } from '../data/refStats';
+import { REF_NOTE, lookupLosRef, lookupReadmitRef } from '../data/refStats';
 
 export interface ScoreFactor { id: 'selisih' | 'pola' | 'konteks'; label: string; points: number; max: number; detail: string }
 export interface ScoreModifier { id: 'keandalan' | 'informasi'; label: string; multiplier: number; detail: string }
@@ -53,6 +53,13 @@ export function scoreCase(c: CaseRecord, patterns: FacilityPattern[], claims: Du
       const pts = los > ref.p90 ? 25 : los > ref.p75 ? 16 : los > ref.median ? 8 : 0;
       kon = { ...kon, points: pts, detail: `Lama rawat tercatat ${los} hari. Pada kelompok diagnosis ${specific ? group : 'umum'} biasanya ${ref.median} hari, dan 90% kasus tidak lebih dari ${ref.p90} hari. ${REF_NOTE}` };
     }
+  }
+
+  if (isSignal(c) && c.risk_type === 'READMISI_MANIPULATIF') {
+    const { group, ref, specific } = lookupReadmitRef(claim?.diagnosis_code);
+    const pts = ref.ratePct < 5 ? 25 : ref.ratePct < 10 ? 16 : ref.ratePct < 20 ? 8 : 0;
+    const wajar = ref.ratePct >= 20 ? ' Kondisi ini memang sering berulang (misalnya perawatan terjadwal), jadi masuk ulang cepat belum tentu janggal.' : '';
+    kon = { ...kon, points: pts, detail: `Pada kelompok diagnosis ${specific ? group : 'umum'}, sekitar ${ref.ratePct.toLocaleString('id-ID')}% rawat inap diikuti rawat inap ulang dalam 30 hari.${wajar} ${REF_NOTE}` };
   }
 
   // Pengali: laporan lemah menurunkan prioritas

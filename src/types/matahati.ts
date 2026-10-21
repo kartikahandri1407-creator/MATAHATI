@@ -105,6 +105,8 @@ export interface TriageResult {
   recommended_verification: string[];
   fraud_determination: 'NOT_DETERMINED';
   ai_interpretation: string;
+  /** Kutipan dari cerita peserta yang menjadi dasar penilaian (sudah diperiksa kode: hanya yang benar-benar ada di cerita). */
+  evidence_quotes?: { quote: string; supports: string }[];
   processing_source?: string;
 }
 

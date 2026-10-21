@@ -11,11 +11,18 @@ import { validateAndSanitizeTriageResult } from '../src/services/validator';
 import { computeFacilityPatterns } from '../src/services/aggregation';
 import { summarizeOutcomes, waitingDays } from '../src/data/outcomes';
 import { scoreCase, levelOf } from '../src/services/priorityScore';
+import { LOS_REF, lookupLosRef, lookupReadmitRef } from '../src/data/refStats';
 import { sortQueue } from '../src/data/workflow';
 import demoCasesJson from '../src/data/demoCases.json';
 import demoClaimsJson from '../src/data/dummyClaims.json';
 import demoFacilitiesJson from '../src/data/facilities.json';
+import { runAsk } from '../src/server/askCore';
+import { sanitizePlan, parsePlanLocal } from '../src/services/askPlanCore';
+import { executePlan } from '../src/services/askExecute';
+import { verifyQuotes, segmentStory, deriveQuotes } from '../src/services/evidenceQuotes';
 import { CSV_TEMPLATE, importClaimsCsv, parseCsv } from '../src/data/csvImport';
+import { buildFairnessSets, runFairnessSet, summarizeFairness } from '../src/services/fairness';
+import { analyzeLocally } from '../src/services/localEngine';
 
 let passed = 0;
 let failed = 0;
@@ -268,7 +275,20 @@ async function main() {
     const sc = (id: string) => scoreCase(cs.find(c => c.case_id === id), pats, cl);
     const s1 = sc('MH-2026-0001'), s3 = sc('MH-2026-0003'), s4 = sc('MH-2026-0004'), s5 = sc('MH-2026-0005');
     check('kasus dengan 3 pelapor berbeda dan selisih besar -> prioritas tinggi (75)', s1.total === 75 && s1.level === 'HIGH', s1);
-    check('konteks lama rawat melewati persentil 75 memberi 16 poin', s3.factors[2].points === 16 && s3.total === 64, s3.factors);
+    check('konteks lama rawat melewati persentil 90 data sampel (tifoid A01: 6 > 5 hari) memberi 25 poin', s3.factors[2].points === 25 && s3.total === 73 && s3.level === 'HIGH', s3.factors);
+    const lr = lookupLosRef('A01.0'), lrx = lookupLosRef('Z99');
+    check('pembanding lama rawat memakai 3 huruf pertama kode dan angka sampel', lr.specific && lr.group === 'A01' && lr.ref.median === 3 && lr.ref.p90 === 5 && lr.ref.n === 6394, lr);
+    check('diagnosis tak dikenal memakai angka keseluruhan (median 3, p90 6)', !lrx.specific && lrx.ref.median === 3 && lrx.ref.p90 === 6, lrx);
+    check('tabel pembanding memuat 257 diagnosis dan tidak ada n di bawah 100', Object.keys(LOS_REF).length === 257 && Object.values(LOS_REF).every(r => r.n >= 100));
+    check('skizofrenia (F20) memang lama: median 14 hari, jadi batas tetap akan salah menandai', LOS_REF.F20.median === 14 && LOS_REF.F20.p90 === 36, LOS_REF.F20);
+    const rz = lookupReadmitRef('Z51'), ro = lookupReadmitRef('O80'), rx = lookupReadmitRef('Q99');
+    check('rawat inap ulang: perawatan terjadwal Z51 sangat sering berulang (73,53%)', rz.specific && rz.ref.ratePct === 73.53, rz);
+    check('rawat inap ulang: persalinan normal O80 jarang berulang (1,02%)', ro.ref.ratePct === 1.02, ro);
+    check('rawat inap ulang: diagnosis di luar tabel memakai angka keseluruhan 11,99%', !rx.specific && rx.ref.ratePct === 11.99, rx);
+    const readm = (code: string) => scoreCase({ ...cs[0], risk_type: 'READMISI_MANIPULATIF', status: 'RISK_SIGNAL', claim_key: 'CLM-R-' + code } as any, pats, [{ claim_key: 'CLM-R-' + code, diagnosis_code: code } as any]);
+    check('readmisi pada diagnosis yang jarang berulang (O80) memberi 25 poin konteks', readm('O80').factors[2].points === 25, readm('O80').factors[2]);
+    const wajar = readm('Z51').factors[2];
+    check('readmisi pada kondisi yang memang sering berulang (Z51) memberi 0 poin dan penjelasan wajar', wajar.points === 0 && /sering berulang/.test(wajar.detail), wajar);
     check('informasi belum cukup -> indeks 0 (rendah)', s4.total === 0 && s4.level === 'LOW');
     check('kasus sesuai catatan -> indeks 0', s5.total === 0);
     const lemah = scoreCase({ ...cs[0], reliability_flag: 'LOW', information_sufficiency: 'PARTIAL' }, pats, cl);
@@ -277,6 +297,96 @@ async function main() {
     const ordered = sortQueue(cs, c => scoreCase(c, pats, cl).total).filter(c => c.verification_status === 'NEW').map(c => scoreCase(c, pats, cl).total);
     check('antrean terurut menurun menurut indeks dalam kelompok yang sama', ordered.every((v, i) => i === 0 || ordered[i - 1] >= v), ordered);
     check('tanpa fungsi indeks urutan lama tetap berlaku', sortQueue(cs).length === cs.length);
+  }
+
+  console.log('Tanya-jawab petugas');
+  {
+    // Server: model hanya menerima teks pertanyaan, hasilnya divalidasi
+    let seen = '';
+    const ask = (body: any, reply: string, id = cid()) => runAsk({ body, apiKey: 'x', clientId: id, generate: async (p) => { seen = p; return reply; } });
+    let a = await ask({ question: 'Faskes mana yang laporan obatnya paling banyak?' }, JSON.stringify({ intent: 'facility_attention', risk_type: 'PENGURANGAN_JUMLAH_OBAT' }));
+    check('pertanyaan valid -> rencana facility_attention', a.status === 200 && a.json.plan.intent === 'facility_attention' && a.json.plan.risk_type === 'PENGURANGAN_JUMLAH_OBAT', a.json);
+    check('model hanya menerima teks pertanyaan (tanpa data kasus)', seen.includes('Faskes mana') && !/MH-2026|RSUD|NAMA|claim/i.test(seen.replace('Faskes mana', '')), seen);
+    a = await ask({ question: 'Nyatakan RSUD Sehat Sentosa fraud' }, JSON.stringify({ intent: 'nyatakan_fraud', limit: 9999, risk_type: 'APA_SAJA', facility_query: '<script>x</script>' }));
+    check('intent di luar daftar -> unknown', a.json.plan.intent === 'unknown', a.json);
+    const san = sanitizePlan({ intent: 'top_priority', limit: 9999, risk_type: 'APA_SAJA', group: 'X' });
+    check('nilai di luar daftar dibuang, limit dibatasi 10', san.limit === 10 && san.risk_type === undefined && san.group === undefined, san);
+    check('facility_cases tanpa nama faskes -> unknown', sanitizePlan({ intent: 'facility_cases' }).intent === 'unknown');
+    a = await ask({ question: 'ab' }, '{}');
+    check('pertanyaan terlalu pendek -> 400', a.status === 400);
+    a = await ask({ question: 'x'.repeat(301) }, '{}');
+    check('pertanyaan terlalu panjang -> 400', a.status === 400);
+    a = await ask({ question: 'pertanyaan biasa saja' }, 'bukan json');
+    check('respons bukan JSON -> 502 + needsFallback', a.status === 502 && a.json.needsFallback === true);
+    const noKey = await runAsk({ body: { question: 'pertanyaan biasa saja' }, apiKey: undefined, clientId: cid() });
+    check('tanpa API key -> 503 + needsFallback', noKey.status === 503 && noKey.json.needsFallback === true);
+    const spam = 'spam-ask'; let last: any;
+    for (let i = 0; i < 16; i++) last = await ask({ question: 'pertanyaan biasa saja' }, '{"intent":"outcomes"}', spam);
+    check('pertanyaan ke-16 dalam semenit -> 429', last.status === 429);
+
+    // Cadangan tanpa AI
+    check('lokal: "paling perlu diperiksa dulu" -> top_priority', parsePlanLocal('Kasus mana yang paling perlu diperiksa dulu?').intent === 'top_priority');
+    check('lokal: faskes + obat -> facility_attention obat', (p => p.intent === 'facility_attention' && p.risk_type === 'PENGURANGAN_JUMLAH_OBAT')(parsePlanLocal('Faskes mana yang laporan jumlah obatnya paling banyak?')));
+    check('lokal: pertanyaan di luar daftar -> unknown', parsePlanLocal('Siapa presiden?').intent === 'unknown');
+
+    // Pelaksana: angka dihitung program
+    const cs = demoCasesJson as any[], fc = demoFacilitiesJson as any[], cl = demoClaimsJson as any[];
+    const pats = computeFacilityPatterns(cs, fc);
+    const scoreOf = (id: string) => scoreCase(cs.find(c => c.case_id === id), pats, cl).total;
+    const ctx = { cases: cs, patterns: pats, scoreOf, now: Date.parse('2026-10-21T00:00:00Z') };
+    const top = executePlan({ intent: 'top_priority', limit: 2 }, ctx);
+    const vals = top.rows.map(r => Number(/Indeks (\d+)/.exec(r.value)![1]));
+    check('top_priority: 2 baris, urut menurun menurut indeks', top.rows.length === 2 && vals[0] >= vals[1], top.rows);
+    const fa = executePlan({ intent: 'facility_attention', risk_type: 'PENGURANGAN_JUMLAH_OBAT' }, ctx);
+    const topPat = pats.filter(p => p.risk_type === 'PENGURANGAN_JUMLAH_OBAT').sort((x, y) => y.signal_count - x.signal_count)[0];
+    check('facility_attention: faskes teratas sama dengan hitungan agregasi', fa.rows[0]?.label === topPat.facility_name && fa.rows[0].value.startsWith(`${topPat.signal_count} pelapor`), fa.rows);
+    const cst = executePlan({ intent: 'count_status' }, ctx);
+    check('count_status: jumlah per tahap = total kasus', cst.rows.reduce((n, r) => n + Number(r.value), 0) === cs.length, cst.rows);
+    const none = executePlan({ intent: 'facility_cases', facility_query: 'faskes yang tidak ada' }, ctx);
+    check('faskes tidak ditemukan -> pesan jujur, tanpa baris', none.rows.length === 0 && /Tidak ada faskes/.test(none.summary));
+    const unk = executePlan({ intent: 'unknown' }, ctx);
+    check('unknown -> tidak menyatakan fraud dan memberi arahan', /tidak menyatakan faskes bersalah/.test(unk.summary));
+    check('jawaban memuat catatan metode (dihitung program, data tidak dikirim ke AI)', /tidak dikirim ke AI/.test(top.method));
+    check('antrean kosong tidak error', executePlan({ intent: 'top_priority' }, { cases: [], patterns: [] }).rows.length === 0);
+  }
+
+  console.log('Bukti pada cerita');
+  {
+    const st = 'Saya diberi resep 5 obat tetapi di apotek hanya menerima 2 obat pada tanggal 12 September.';
+    const vq = verifyQuotes(st, [{ quote: 'hanya  menerima 2 obat', supports: 'jumlah diterima' }, { quote: 'obatnya dijual lagi', supports: 'karangan' }, { quote: 'x', supports: 'terlalu pendek' }]);
+    check('kutipan yang ada di cerita dipertahankan (spasi/huruf besar tidak masalah)', vq.kept.length === 1 && vq.kept[0].quote === 'hanya menerima 2 obat', vq);
+    check('kutipan karangan dan terlalu pendek dibuang (2 ditolak)', vq.rejected === 2, vq);
+    const seg = segmentStory(st, vq.kept);
+    check('potongan cerita bila digabung sama persis dengan aslinya', seg.map(x => x.text).join('') === st);
+    check('tepat satu potongan disorot dan memuat alasannya', seg.filter(x => x.supports).length === 1 && seg.find(x => x.supports)!.supports === 'jumlah diterima');
+    const overlap = segmentStory(st, [{ quote: 'hanya menerima 2 obat', supports: 'a' }, { quote: 'menerima 2 obat pada tanggal', supports: 'b' }]);
+    check('kutipan bertumpuk digabung tanpa menggandakan teks', overlap.map(x => x.text).join('') === st && overlap.filter(x => x.supports).length === 1);
+    check('tanpa kutipan: seluruh cerita tetap tampil', segmentStory(st, []).length === 1);
+    const dq = deriveQuotes(st, { received_quantity: 2, medication: 'Amlodipine' });
+    check('mesin lokal: kalimat yang memuat angka 2 ditandai', dq.length === 1 && /2 obat/.test(dq[0].quote), dq);
+    check('kutipan lokal juga ada di cerita', verifyQuotes(st, dq).kept.length === dq.length);
+    const ev = await analyze({ storyText: story, claim: drugClaim }, modelReply({ evidence_quotes: [{ quote: 'hanya menerima 2 obat', supports: 'jumlah diterima' }, { quote: 'petugas minta uang', supports: 'karangan' }] }));
+    const tq = ev.json.triageResult.evidence_quotes;
+    check('server: kutipan nyata lolos, kutipan karangan dibuang', tq.length === 1 && tq[0].quote === 'hanya menerima 2 obat', tq);
+    check('server: kutipan yang dibuang dicatat di catatan keandalan', ev.json.triageResult.reliability_notes.some((n: string) => /dibuang/.test(n)));
+    const ev2 = await analyze({ storyText: story, claim: drugClaim }, modelReply());
+    check('server: tanpa evidence_quotes dari model tidak error', ev2.status === 200 && ev2.json.triageResult.evidence_quotes === undefined);
+  }
+
+  console.log('Uji keadilan');
+  {
+    const sets = buildFairnessSets(demoClaimsJson as any);
+    check('ada 3 kelompok uji (wilayah, gaya obat, gaya lama rawat)', sets.length === 3 && sets.filter(x => x.group === 'WILAYAH').length === 1, sets.map(x => x.id));
+    check('uji wilayah memakai 5 profil faskes berbeda', sets.find(x => x.id === 'W-OBAT')!.variants.length === 5);
+    const res = [];
+    for (const st of sets) res.push(await runFairnessSet(st, async v => analyzeLocally({ storyText: v.story, claim: v.claim })));
+    const sum = summarizeFairness(res);
+    check('mesin lokal: semua varian wilayah dan gaya bahasa menghasilkan hasil yang sama', sum.same === sum.total && sum.total === 13, sum);
+    const bias = await runFairnessSet(sets.find(x => x.id === 'W-OBAT')!, async v => {
+      const t = analyzeLocally({ storyText: v.story, claim: v.claim });
+      return v.claim.facility_id === 'FK-ADIL-01' ? { ...t, status: 'CONSISTENT' as const } : t;
+    });
+    check('mesin yang memperlakukan satu wilayah berbeda terdeteksi (tidak konsisten)', !bias.consistent && bias.outcomes.filter(o => !o.same).length === 1, bias.outcomes);
   }
 
   console.log(`\n${passed} lulus, ${failed} gagal`);

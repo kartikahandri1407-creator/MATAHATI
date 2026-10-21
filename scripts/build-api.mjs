@@ -6,6 +6,7 @@ import { build } from 'esbuild';
 await build({
   entryPoints: {
     analyze: 'server-src/vercel/analyze.ts',
+    ask: 'server-src/vercel/ask.ts',
     db: 'server-src/vercel/db.ts',
     health: 'server-src/vercel/health.ts'
   },

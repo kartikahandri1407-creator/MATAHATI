@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CaseRecord, VerificationStatus, FacilityPattern } from '../types/matahati';
 import { PriorityScore } from '../services/priorityScore';
 import { PriorityBreakdown } from './PriorityBreakdown';
+import { HighlightedStory } from './HighlightedStory';
 import { 
   X, 
   FileText, 
@@ -198,9 +199,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                   className="w-full rounded border border-slate-300 p-2 text-xs text-slate-800"
                 />
               ) : (
-                <div className="p-3 bg-slate-50 rounded border border-slate-200 text-slate-800 leading-relaxed italic">
-                  "{caseRecord.patient_statement}"
-                </div>
+                <HighlightedStory story={caseRecord.patient_statement} quotes={caseRecord.evidence_quotes} evidence={caseRecord.patient_evidence} />
               )}
 
               <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">

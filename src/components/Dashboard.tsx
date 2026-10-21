@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CaseRecord, Facility, FacilityPattern, TriageStatus } from '../types/matahati';
 import { FacilityPatternCard } from './FacilityPatternCard';
+import { AskPanel } from './AskPanel';
 import { RISK_LABEL } from '../data/claimUtils';
 import { PriorityScore } from '../services/priorityScore';
 import { summarizeOutcomes } from '../data/outcomes';
@@ -131,6 +132,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
               </div>
             </section>
           )}
+
+          <AskPanel cases={cases} patterns={facilityPatterns} scoreOf={id => scores?.[id]?.total ?? 0} onOpenCase={onOpenCaseDetail} />
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Kpi icon={<ShieldAlert className="w-4 h-4" />} tone="bg-rose-50 text-rose-700" label="Perlu diverifikasi" value={counts.verify} hint="belum selesai" />
