@@ -16,14 +16,14 @@ interface Props {
 export const AskPanel: React.FC<Props> = ({ cases, patterns, scoreOf, onOpenCase }) => {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
-  const [res, setRes] = useState<{ q: string; answer: AskAnswer; source: 'AI' | 'LOKAL'; reason?: string } | null>(null);
+  const [res, setRes] = useState<{ q: string; answer: AskAnswer; source: 'AI' | 'LOKAL'; reason?: string; cached?: boolean } | null>(null);
 
   const ask = async (text: string) => {
     const question = text.trim();
     if (question.length < 3 || busy) return;
     setBusy(true);
-    const { plan, source, reason } = await planQuestion(question);
-    setRes({ q: question, answer: executePlan(plan, { cases, patterns, scoreOf }), source, reason });
+    const { plan, source, reason, cached } = await planQuestion(question);
+    setRes({ q: question, answer: executePlan(plan, { cases, patterns, scoreOf }), source, reason, cached });
     setBusy(false);
   };
 
@@ -69,7 +69,7 @@ export const AskPanel: React.FC<Props> = ({ cases, patterns, scoreOf, onOpenCase
               })}
             </ul>)}
           <p className="text-[11px] text-slate-500">
-            {res.source === 'AI' ? 'Pertanyaan dipahami oleh AI.' : `Pertanyaan dipahami oleh mesin lokal (AI tidak tersedia${res.reason ? `: ${res.reason}` : ''}).`} {res.answer.method}
+            {res.source === 'AI' ? (res.cached ? `Pertanyaan dipahami oleh AI (memakai hasil AI sebelumnya karena ${res.reason || 'AI sedang tidak tersedia'}).` : 'Pertanyaan dipahami oleh AI.') : `Pertanyaan dipahami oleh mesin lokal (AI tidak tersedia${res.reason ? `: ${res.reason}` : ''}).`} {res.answer.method}
           </p>
         </div>
       )}

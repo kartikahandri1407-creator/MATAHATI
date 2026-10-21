@@ -12,6 +12,7 @@ import { computeFacilityPatterns } from '../src/services/aggregation';
 import { summarizeOutcomes, waitingDays } from '../src/data/outcomes';
 import { scoreCase, levelOf } from '../src/services/priorityScore';
 import { LOS_REF, lookupLosRef, lookupReadmitRef } from '../src/data/refStats';
+import { cacheGet, cachePut, normalizeQuestion, ASK_CACHE_KEY } from '../src/ai/askCache';
 import { sortQueue } from '../src/data/workflow';
 import demoCasesJson from '../src/data/demoCases.json';
 import demoClaimsJson from '../src/data/dummyClaims.json';
@@ -378,6 +379,24 @@ async function main() {
     check('unknown -> tidak menyatakan fraud dan memberi arahan', /tidak menyatakan faskes bersalah/.test(unk.summary));
     check('jawaban memuat catatan metode (dihitung program, data tidak dikirim ke AI)', /tidak dikirim ke AI/.test(top.method));
     check('antrean kosong tidak error', executePlan({ intent: 'top_priority' }, { cases: [], patterns: [] }).rows.length === 0);
+  }
+
+  console.log('Ingatan pertanyaan');
+  {
+    const mem: Record<string, string> = {};
+    const store = { getItem: (k: string) => (k in mem ? mem[k] : null), setItem: (k: string, v: string) => { mem[k] = v; } };
+    check('normalisasi: huruf besar, tanda baca, dan spasi tidak dibedakan', normalizeQuestion('  Kasus mana, yang PALING perlu diperiksa dulu?? ') === 'kasus mana yang paling perlu diperiksa dulu');
+    check('belum ada ingatan -> null', cacheGet(store, 'apa saja?') === null);
+    cachePut(store, 'Faskes mana yang laporan obatnya paling banyak?', { intent: 'facility_attention', risk_type: 'PENGURANGAN_JUMLAH_OBAT' });
+    const got = cacheGet(store, 'faskes mana yang laporan obatnya paling banyak');
+    check('rencana tersimpan dan terbaca untuk pertanyaan yang sama', got?.intent === 'facility_attention' && got.risk_type === 'PENGURANGAN_JUMLAH_OBAT', got);
+    mem[ASK_CACHE_KEY] = JSON.stringify({ 'tes': { intent: 'hapus_semua', risk_type: 'x' } });
+    check('isi ingatan yang dirusak tetap disaring (intent asing -> unknown)', cacheGet(store, 'tes')?.intent === 'unknown');
+    mem[ASK_CACHE_KEY] = 'bukan json {';
+    check('ingatan rusak tidak menyebabkan galat', cacheGet(store, 'tes') === null);
+    for (let i = 0; i < 60; i++) cachePut(store, `pertanyaan nomor ${i}`, { intent: 'outcomes' });
+    check('ingatan dibatasi 40 pertanyaan terbaru', Object.keys(JSON.parse(mem[ASK_CACHE_KEY])).length === 40 && cacheGet(store, 'pertanyaan nomor 59') !== null && cacheGet(store, 'pertanyaan nomor 0') === null);
+    check('tanpa penyimpanan (null) tidak error', cacheGet(null, 'x') === null);
   }
 
   console.log('Bukti pada cerita');

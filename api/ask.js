@@ -92,20 +92,20 @@ ${question.replace(/<\/?\s*pertanyaan\s*>/gi, " ")}
     if (input.generate) text = await input.generate(prompt, ASK_SYSTEM_INSTRUCTION);
     else {
       const ai = new GoogleGenAI({ apiKey: input.apiKey });
-      const models = [process.env.GEMINI_MODEL || "gemini-2.5-flash", process.env.GEMINI_FALLBACK_MODEL || "gemini-3.1-flash-lite"];
+      const models = Array.from(/* @__PURE__ */ new Set([process.env.GEMINI_MODEL || "gemini-2.5-flash", process.env.GEMINI_FALLBACK_MODEL || "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]));
       let lastErr;
       for (const model of models) {
-        for (let attempt = 0; attempt < 2 && !text; attempt++) {
-          try {
-            const r = await ai.models.generateContent({ model, contents: [{ text: prompt }], config: { systemInstruction: ASK_SYSTEM_INSTRUCTION, responseMimeType: "application/json", temperature: 0 } });
-            text = r.text || "";
+        try {
+          const r = await ai.models.generateContent({ model, contents: [{ text: prompt }], config: { systemInstruction: ASK_SYSTEM_INSTRUCTION, responseMimeType: "application/json", temperature: 0 } });
+          text = r.text || "";
+          if (text) {
             lastErr = null;
-          } catch (e) {
-            lastErr = e;
-            await new Promise((r) => setTimeout(r, 600));
+            break;
           }
+        } catch (e) {
+          lastErr = e;
+          await new Promise((r) => setTimeout(r, 400));
         }
-        if (text) break;
       }
       if (lastErr) throw lastErr;
     }
