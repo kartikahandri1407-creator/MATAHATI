@@ -357,6 +357,10 @@ async function main() {
     const top = executePlan({ intent: 'top_priority', limit: 2 }, ctx);
     const vals = top.rows.map(r => Number(/Indeks (\d+)/.exec(r.value)![1]));
     check('top_priority: 2 baris, urut menurun menurut indeks', top.rows.length === 2 && vals[0] >= vals[1], top.rows);
+    const tie = executePlan({ intent: 'top_priority', limit: 1 }, { ...ctx, scoreOf: () => 50 });
+    check('top_priority: kasus yang seri pada indeks teratas semuanya ditampilkan', tie.rows.length > 1 && /seri/.test(tie.summary), tie);
+    const one = executePlan({ intent: 'top_priority', limit: 1 }, { ...ctx, scoreOf: id => (id === 'MH-2026-0008' ? 90 : 10) });
+    check('top_priority: bila tidak ada yang seri, tetap 1 baris', one.rows.length === 1 && one.rows[0].caseId === 'MH-2026-0008', one.rows);
     const fa = executePlan({ intent: 'facility_attention', risk_type: 'PENGURANGAN_JUMLAH_OBAT' }, ctx);
     const topPat = pats.filter(p => p.risk_type === 'PENGURANGAN_JUMLAH_OBAT').sort((x, y) => y.signal_count - x.signal_count)[0];
     check('facility_attention: faskes teratas sama dengan hitungan agregasi', fa.rows[0]?.label === topPat.facility_name && fa.rows[0].value.startsWith(`${topPat.signal_count} pelapor`), fa.rows);

@@ -32,10 +32,16 @@ export function executePlan(plan: AskPlan, ctx: AskContext): AskAnswer {
     case 'top_priority': {
       const n = plan.limit ?? 3;
       const open = ctx.cases.filter(c => queueGroup(c.verification_status) === 'OPEN');
-      const ranked = [...open].sort((a, b) => (ctx.scoreOf?.(b.case_id) ?? 0) - (ctx.scoreOf?.(a.case_id) ?? 0)).slice(0, n);
+      const sc = (c: { case_id: string }) => ctx.scoreOf?.(c.case_id) ?? 0;
+      const sorted = [...open].sort((a, b) => sc(b) - sc(a));
+      let ranked = sorted.slice(0, n);
+      // Kasus yang seri dengan baris terakhir ikut ditampilkan (maksimal 10), supaya tidak ada yang tersembunyi.
+      const cut = ranked.length ? sc(ranked[ranked.length - 1]) : 0;
+      const ties = ranked.length ? sorted.slice(n).filter(c => sc(c) === cut).slice(0, Math.max(0, 10 - ranked.length)) : [];
+      ranked = [...ranked, ...ties];
       return {
         title: 'Kasus yang paling perlu diperiksa dulu',
-        summary: ranked.length ? `${ranked.length} kasus dengan indeks prioritas tertinggi dari ${open.length} yang belum diproses.` : 'Tidak ada kasus yang belum diproses.',
+        summary: ranked.length ? `${ranked.length} kasus dengan indeks prioritas tertinggi dari ${open.length} yang belum diproses.${ties.length ? ' Ada kasus yang seri pada indeks yang sama, semuanya ditampilkan.' : ''}` : 'Tidak ada kasus yang belum diproses.',
         rows: ranked.map(c => ({ label: `${c.case_id} · ${c.facility_name}`, value: `Indeks ${ctx.scoreOf?.(c.case_id) ?? 0} · ${RISK_LABEL[c.risk_type]}`, caseId: c.case_id })),
         method
       };
