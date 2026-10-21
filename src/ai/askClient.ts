@@ -1,9 +1,12 @@
 /** MATA HATI - klien tanya-jawab petugas. Bila server AI tidak tersedia, memakai pencocokan kata kunci lokal. */
 import { AskPlan, parsePlanLocal, sanitizePlan } from '../services/askPlanCore';
 
-export interface AskResult { plan: AskPlan; source: 'AI' | 'LOKAL' }
+export interface AskResult { plan: AskPlan; source: 'AI' | 'LOKAL'; reason?: string }
 
-export async function planQuestion(question: string): Promise<AskResult> {
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** Satu percobaan ke server AI. Mengembalikan rencana, atau alasan singkat bila gagal. */
+async function tryOnce(question: string): Promise<{ plan?: AskPlan; reason?: string; retry: boolean }> {
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 12000);
@@ -11,8 +14,19 @@ export async function planQuestion(question: string): Promise<AskResult> {
     clearTimeout(t);
     if (res.ok) {
       const j = await res.json();
-      if (j?.plan) return { plan: sanitizePlan(j.plan), source: 'AI' };
+      if (j?.plan) return { plan: sanitizePlan(j.plan), retry: false };
+      return { reason: 'jawaban kosong', retry: true };
     }
-  } catch { /* jatuh ke mesin lokal */ }
-  return { plan: parsePlanLocal(question), source: 'LOKAL' };
+    const reason = res.status === 429 ? 'batas permintaan tercapai' : res.status === 503 ? 'kunci AI belum diatur di server' : res.status === 404 ? 'layanan AI belum terpasang' : `server AI menjawab kode ${res.status}`;
+    return { reason, retry: res.status === 502 || res.status === 504 };   // 429/503/404 tidak diulang
+  } catch (e: any) {
+    return { reason: e?.name === 'AbortError' ? 'AI terlalu lama menjawab' : 'tidak dapat menghubungi server', retry: true };
+  }
+}
+
+export async function planQuestion(question: string): Promise<AskResult> {
+  let last = await tryOnce(question);
+  if (!last.plan && last.retry) { await sleep(700); last = await tryOnce(question); }   // gangguan sesaat: coba sekali lagi
+  if (last.plan) return { plan: last.plan, source: 'AI' };
+  return { plan: parsePlanLocal(question), source: 'LOKAL', reason: last.reason };
 }

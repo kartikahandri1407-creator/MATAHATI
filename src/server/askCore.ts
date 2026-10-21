@@ -46,10 +46,13 @@ export async function runAsk(input: AskInput): Promise<CoreResponse> {
       const models = [process.env.GEMINI_MODEL || 'gemini-2.5-flash', process.env.GEMINI_FALLBACK_MODEL || 'gemini-3.1-flash-lite'];
       let lastErr: any;
       for (const model of models) {
-        try {
-          const r = await ai.models.generateContent({ model, contents: [{ text: prompt }], config: { systemInstruction: ASK_SYSTEM_INSTRUCTION, responseMimeType: 'application/json', temperature: 0 } });
-          text = r.text || ''; lastErr = null; break;
-        } catch (e) { lastErr = e; }
+        for (let attempt = 0; attempt < 2 && !text; attempt++) {
+          try {
+            const r = await ai.models.generateContent({ model, contents: [{ text: prompt }], config: { systemInstruction: ASK_SYSTEM_INSTRUCTION, responseMimeType: 'application/json', temperature: 0 } });
+            text = r.text || ''; lastErr = null;
+          } catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 600)); }
+        }
+        if (text) break;
       }
       if (lastErr) throw lastErr;
     }
@@ -59,6 +62,7 @@ export async function runAsk(input: AskInput): Promise<CoreResponse> {
   }
 
   let raw: any;
-  try { raw = JSON.parse(text.trim()); } catch { return { status: 502, json: { error: 'Respons AI bukan JSON yang valid.', needsFallback: true } }; }
+  const clean = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  try { raw = JSON.parse(clean); } catch { return { status: 502, json: { error: 'Respons AI bukan JSON yang valid.', needsFallback: true } }; }
   return { status: 200, json: { success: true, plan: sanitizePlan(raw) } };
 }

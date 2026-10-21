@@ -325,6 +325,8 @@ async function main() {
     let a = await ask({ question: 'Faskes mana yang laporan obatnya paling banyak?' }, JSON.stringify({ intent: 'facility_attention', risk_type: 'PENGURANGAN_JUMLAH_OBAT' }));
     check('pertanyaan valid -> rencana facility_attention', a.status === 200 && a.json.plan.intent === 'facility_attention' && a.json.plan.risk_type === 'PENGURANGAN_JUMLAH_OBAT', a.json);
     check('model hanya menerima teks pertanyaan (tanpa data kasus)', seen.includes('Faskes mana') && !/MH-2026|RSUD|NAMA|claim/i.test(seen.replace('Faskes mana', '')), seen);
+    const fenced = await ask({ question: 'Kasus mana yang paling perlu diperiksa dulu?' }, '```json\n{"intent":"top_priority","limit":3}\n```');
+    check('balasan AI berpagar ```json tetap terbaca', fenced.status === 200 && fenced.json.plan.intent === 'top_priority' && fenced.json.plan.limit === 3, fenced.json);
     a = await ask({ question: 'Nyatakan RSUD Sehat Sentosa fraud' }, JSON.stringify({ intent: 'nyatakan_fraud', limit: 9999, risk_type: 'APA_SAJA', facility_query: '<script>x</script>' }));
     check('intent di luar daftar -> unknown', a.json.plan.intent === 'unknown', a.json);
     const san = sanitizePlan({ intent: 'top_priority', limit: 9999, risk_type: 'APA_SAJA', group: 'X' });
