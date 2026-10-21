@@ -17,7 +17,9 @@ async function tryOnce(question: string): Promise<{ plan?: AskPlan; reason?: str
       if (j?.plan) return { plan: sanitizePlan(j.plan), retry: false };
       return { reason: 'jawaban kosong', retry: true };
     }
-    const reason = res.status === 429 ? 'batas permintaan tercapai' : res.status === 503 ? 'kunci AI belum diatur di server' : res.status === 404 ? 'layanan AI belum terpasang' : `server AI menjawab kode ${res.status}`;
+    let serverReason = '';
+    try { const j = await res.clone().json(); if (typeof j?.reason === 'string') serverReason = j.reason.slice(0, 80); } catch { /* abaikan */ }
+    const reason = serverReason || (res.status === 429 ? 'batas permintaan tercapai' : res.status === 503 ? 'kunci AI belum diatur di server' : res.status === 404 ? 'layanan AI belum terpasang' : `server AI menjawab kode ${res.status}`);
     return { reason, retry: res.status === 502 || res.status === 504 };   // 429/503/404 tidak diulang
   } catch (e: any) {
     return { reason: e?.name === 'AbortError' ? 'AI terlalu lama menjawab' : 'tidak dapat menghubungi server', retry: true };

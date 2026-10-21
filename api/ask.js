@@ -63,6 +63,16 @@ function limited(clientId, now = Date.now()) {
   if (hits.size > 5e3) hits.clear();
   return recent.length > PER_MINUTE;
 }
+function classifyAiError(err) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  const code = Number(err?.status ?? err?.code ?? err?.error?.code ?? 0);
+  if (code === 429 || /quota|resource_exhausted|rate.?limit|too many/.test(msg)) return "kuota Gemini habis atau terlalu sering";
+  if (code === 503 || /unavailable|overloaded|high demand/.test(msg)) return "Gemini sedang sibuk";
+  if (code === 404 || /not found|not supported|unknown model/.test(msg)) return "nama model Gemini tidak dikenali";
+  if (code === 401 || code === 403 || /api key|permission|unauthor|forbidden|invalid.*key/.test(msg)) return "kunci Gemini ditolak";
+  if (/timeout|timed out|abort|fetch failed|econn|enotfound|network/.test(msg)) return "koneksi ke Gemini terputus";
+  return "Gemini menolak permintaan";
+}
 async function runAsk(input) {
   if (limited(input.clientId)) return { status: 429, json: { error: "Terlalu banyak pertanyaan. Coba lagi sebentar.", needsFallback: true } };
   const q = input.body?.question;
@@ -101,14 +111,14 @@ ${question.replace(/<\/?\s*pertanyaan\s*>/gi, " ")}
     }
   } catch (err) {
     console.error("Gemini ask error:", err?.message || err);
-    return { status: 502, json: { error: "Layanan AI tidak dapat dihubungi.", needsFallback: true } };
+    return { status: 502, json: { error: "Layanan AI tidak dapat dihubungi.", needsFallback: true, reason: classifyAiError(err) } };
   }
   let raw;
   const clean = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   try {
     raw = JSON.parse(clean);
   } catch {
-    return { status: 502, json: { error: "Respons AI bukan JSON yang valid.", needsFallback: true } };
+    return { status: 502, json: { error: "Respons AI bukan JSON yang valid.", needsFallback: true, reason: "balasan Gemini bukan JSON" } };
   }
   return { status: 200, json: { success: true, plan: sanitizePlan(raw) } };
 }

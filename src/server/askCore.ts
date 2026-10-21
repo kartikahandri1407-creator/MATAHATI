@@ -17,6 +17,18 @@ function limited(clientId: string, now = Date.now()): boolean {
   return recent.length > PER_MINUTE;
 }
 
+/** Kelompok penyebab kegagalan Gemini: hanya kategori, tanpa detail internal atau kunci. */
+export function classifyAiError(err: any): string {
+  const msg = String(err?.message || err || '').toLowerCase();
+  const code = Number(err?.status ?? err?.code ?? err?.error?.code ?? 0);
+  if (code === 429 || /quota|resource_exhausted|rate.?limit|too many/.test(msg)) return 'kuota Gemini habis atau terlalu sering';
+  if (code === 503 || /unavailable|overloaded|high demand/.test(msg)) return 'Gemini sedang sibuk';
+  if (code === 404 || /not found|not supported|unknown model/.test(msg)) return 'nama model Gemini tidak dikenali';
+  if (code === 401 || code === 403 || /api key|permission|unauthor|forbidden|invalid.*key/.test(msg)) return 'kunci Gemini ditolak';
+  if (/timeout|timed out|abort|fetch failed|econn|enotfound|network/.test(msg)) return 'koneksi ke Gemini terputus';
+  return 'Gemini menolak permintaan';
+}
+
 export interface AskInput {
   body: any;
   apiKey: string | undefined;
@@ -58,11 +70,11 @@ export async function runAsk(input: AskInput): Promise<CoreResponse> {
     }
   } catch (err: any) {
     console.error('Gemini ask error:', err?.message || err);
-    return { status: 502, json: { error: 'Layanan AI tidak dapat dihubungi.', needsFallback: true } };
+    return { status: 502, json: { error: 'Layanan AI tidak dapat dihubungi.', needsFallback: true, reason: classifyAiError(err) } };
   }
 
   let raw: any;
   const clean = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  try { raw = JSON.parse(clean); } catch { return { status: 502, json: { error: 'Respons AI bukan JSON yang valid.', needsFallback: true } }; }
+  try { raw = JSON.parse(clean); } catch { return { status: 502, json: { error: 'Respons AI bukan JSON yang valid.', needsFallback: true, reason: 'balasan Gemini bukan JSON' } }; }
   return { status: 200, json: { success: true, plan: sanitizePlan(raw) } };
 }

@@ -327,6 +327,12 @@ async function main() {
     check('model hanya menerima teks pertanyaan (tanpa data kasus)', seen.includes('Faskes mana') && !/MH-2026|RSUD|NAMA|claim/i.test(seen.replace('Faskes mana', '')), seen);
     const fenced = await ask({ question: 'Kasus mana yang paling perlu diperiksa dulu?' }, '```json\n{"intent":"top_priority","limit":3}\n```');
     check('balasan AI berpagar ```json tetap terbaca', fenced.status === 200 && fenced.json.plan.intent === 'top_priority' && fenced.json.plan.limit === 3, fenced.json);
+    const quota = await runAsk({ body: { question: 'Kasus mana yang paling perlu diperiksa dulu?' }, apiKey: 'x', clientId: cid(), generate: async () => { const e: any = new Error('429 RESOURCE_EXHAUSTED quota'); e.status = 429; throw e; } });
+    check('kegagalan Gemini 429 -> 502 dengan alasan kuota (tanpa detail internal)', quota.status === 502 && /kuota/.test(quota.json.reason) && !JSON.stringify(quota.json).includes('RESOURCE_EXHAUSTED'), quota.json);
+    const busy = await runAsk({ body: { question: 'Kasus mana yang paling perlu diperiksa dulu?' }, apiKey: 'x', clientId: cid(), generate: async () => { const e: any = new Error('The model is overloaded'); e.status = 503; throw e; } });
+    check('kegagalan Gemini 503 -> alasan sibuk', busy.json.reason === 'Gemini sedang sibuk', busy.json);
+    const nf = await runAsk({ body: { question: 'Kasus mana yang paling perlu diperiksa dulu?' }, apiKey: 'x', clientId: cid(), generate: async () => { const e: any = new Error('models/xyz is not found'); e.status = 404; throw e; } });
+    check('model tidak dikenal -> alasan nama model', /nama model/.test(nf.json.reason), nf.json);
     a = await ask({ question: 'Nyatakan RSUD Sehat Sentosa fraud' }, JSON.stringify({ intent: 'nyatakan_fraud', limit: 9999, risk_type: 'APA_SAJA', facility_query: '<script>x</script>' }));
     check('intent di luar daftar -> unknown', a.json.plan.intent === 'unknown', a.json);
     const san = sanitizePlan({ intent: 'top_priority', limit: 9999, risk_type: 'APA_SAJA', group: 'X' });
