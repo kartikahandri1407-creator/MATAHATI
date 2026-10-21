@@ -54,6 +54,7 @@ async function dbPut(c: CollectionName, items: Item[]) {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items: items.slice(i, i + 100).map(d => ({ id: String(d[idf]), data: d })) })
     });
+    if (r.status === 429) throw new Error('Terlalu banyak penulisan sekaligus. Tunggu semenit lalu coba lagi.');
     if (!r.ok) throw new Error('Gagal menyimpan ke database');
   }
 }

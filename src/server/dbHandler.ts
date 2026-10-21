@@ -19,7 +19,7 @@ export interface DbResponse {
 
 export const COLLECTIONS = ['facilities', 'claims', 'cases', 'meta'] as const;
 const ID_PATTERN = /^[A-Za-z0-9._:-]{1,80}$/;
-export const DB_LIMITS = { itemBytes: 100_000, itemsPerRequest: 200, writesPerMinute: 120 };
+export const DB_LIMITS = { itemBytes: 100_000, itemsPerRequest: 200, writesPerMinute: 1500 };
 const TABLE = 'mh_records';
 
 // ---- batas tulis sederhana (best-effort) ----

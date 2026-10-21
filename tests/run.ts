@@ -197,6 +197,24 @@ async function main() {
   d = await handleDb({ method: 'DELETE', query: { c: 'cases', id: 'MH-2026-0001' }, body: null, clientId: c });
   d = await handleDb({ method: 'GET', query: { c: 'cases' }, body: null, clientId: c });
   check('hapus satu item', d.json.items.length === 1, d);
+  {
+    // Impor CSV 400 klaim dikirim 4 x 100 item oleh aplikasi; semuanya harus lolos batas tulis
+    const cb = cid();
+    let ok400 = true;
+    for (let b = 0; b < 4; b++) {
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: `CLM-B-${b}-${i}`, data: { n: i } }));
+      const r = await handleDb({ method: 'PUT', query: { c: 'claims' }, body: { items }, clientId: cb });
+      if (r.status !== 200) ok400 = false;
+    }
+    check('impor 400 klaim (4 x 100 item) lolos batas tulis', ok400);
+    let limited = false;
+    for (let b = 0; b < 16; b++) {
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: `CLM-X-${b}-${i}`, data: { n: i } }));
+      const r = await handleDb({ method: 'PUT', query: { c: 'claims' }, body: { items }, clientId: cb });
+      if (r.status === 429) limited = true;
+    }
+    check('penulisan berlebihan tetap dibatasi (429)', limited);
+  }
   d = await handleDb({ method: 'DELETE', query: { c: 'cases', all: '1' }, body: null, clientId: c });
   d = await handleDb({ method: 'GET', query: { c: 'cases' }, body: null, clientId: c });
   check('hapus semua', d.json.items.length === 0, d);

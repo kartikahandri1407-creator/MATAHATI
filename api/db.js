@@ -3,7 +3,7 @@
 // src/server/dbHandler.ts
 var COLLECTIONS = ["facilities", "claims", "cases", "meta"];
 var ID_PATTERN = /^[A-Za-z0-9._:-]{1,80}$/;
-var DB_LIMITS = { itemBytes: 1e5, itemsPerRequest: 200, writesPerMinute: 120 };
+var DB_LIMITS = { itemBytes: 1e5, itemsPerRequest: 200, writesPerMinute: 1500 };
 var TABLE = "mh_records";
 var writes = /* @__PURE__ */ new Map();
 function writeLimited(clientId, count, now = Date.now()) {
