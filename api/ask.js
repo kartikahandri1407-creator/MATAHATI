@@ -94,6 +94,7 @@ ${question.replace(/<\/?\s*pertanyaan\s*>/gi, " ")}
       const ai = new GoogleGenAI({ apiKey: input.apiKey });
       const models = Array.from(/* @__PURE__ */ new Set([process.env.GEMINI_MODEL || "gemini-2.5-flash", process.env.GEMINI_FALLBACK_MODEL || "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]));
       let lastErr;
+      const perModel = [];
       for (const model of models) {
         try {
           const r = await ai.models.generateContent({ model, contents: [{ text: prompt }], config: { systemInstruction: ASK_SYSTEM_INSTRUCTION, responseMimeType: "application/json", temperature: 0 } });
@@ -102,16 +103,21 @@ ${question.replace(/<\/?\s*pertanyaan\s*>/gi, " ")}
             lastErr = null;
             break;
           }
+          perModel.push(`${model}: jawaban kosong`);
         } catch (e) {
           lastErr = e;
+          perModel.push(`${model}: ${classifyAiError(e)}`);
           await new Promise((r) => setTimeout(r, 400));
         }
+      }
+      if (lastErr) {
+        lastErr.perModel = perModel.join("; ");
       }
       if (lastErr) throw lastErr;
     }
   } catch (err) {
     console.error("Gemini ask error:", err?.message || err);
-    return { status: 502, json: { error: "Layanan AI tidak dapat dihubungi.", needsFallback: true, reason: classifyAiError(err) } };
+    return { status: 502, json: { error: "Layanan AI tidak dapat dihubungi.", needsFallback: true, reason: err?.perModel || classifyAiError(err) } };
   }
   let raw;
   const clean = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
@@ -122,6 +128,23 @@ ${question.replace(/<\/?\s*pertanyaan\s*>/gi, " ")}
   }
   return { status: 200, json: { success: true, plan: sanitizePlan(raw) } };
 }
+async function listAvailableModels(apiKey) {
+  if (!apiKey) return { status: 503, json: { error: "GEMINI_API_KEY belum diatur di server." } };
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const pager = await ai.models.list();
+    const names = [];
+    for await (const m of pager) {
+      const actions = m.supportedActions || m.supportedGenerationMethods || [];
+      if (!actions.length || actions.includes("generateContent")) names.push(String(m.name || "").replace(/^models\//, ""));
+      if (names.length >= 200) break;
+    }
+    const dipakai = Array.from(/* @__PURE__ */ new Set([process.env.GEMINI_MODEL || "gemini-2.5-flash", process.env.GEMINI_FALLBACK_MODEL || "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]));
+    return { status: 200, json: { dipakai, tersedia: names.filter((n) => /flash|pro/.test(n)), dipakaiTersedia: dipakai.map((n) => ({ model: n, tersedia: names.includes(n) })) } };
+  } catch (err) {
+    return { status: 502, json: { error: "Daftar model tidak dapat dibaca.", reason: classifyAiError(err) } };
+  }
+}
 
 // server-src/vercel/clientId.ts
 function clientIdOf(req) {
@@ -131,6 +154,10 @@ function clientIdOf(req) {
 
 // server-src/vercel/ask.ts
 async function handler(req, res) {
+  if (req.method === "GET" && String(req.query?.models || "") === "1") {
+    const out2 = await listAvailableModels(process.env.GEMINI_API_KEY);
+    return res.status(out2.status).json(out2.json);
+  }
   if (req.method !== "POST") return res.status(405).json({ error: "Metode tidak didukung." });
   const out = await runAsk({ body: req.body, apiKey: process.env.GEMINI_API_KEY, clientId: clientIdOf(req) });
   return res.status(out.status).json(out.json);

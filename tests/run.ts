@@ -12,6 +12,7 @@ import { computeFacilityPatterns } from '../src/services/aggregation';
 import { summarizeOutcomes, waitingDays } from '../src/data/outcomes';
 import { scoreCase, levelOf } from '../src/services/priorityScore';
 import { LOS_REF, lookupLosRef, lookupReadmitRef } from '../src/data/refStats';
+import { listAvailableModels } from '../src/server/askCore';
 import { cacheGet, cachePut, normalizeQuestion, ASK_CACHE_KEY } from '../src/ai/askCache';
 import { sortQueue } from '../src/data/workflow';
 import demoCasesJson from '../src/data/demoCases.json';
@@ -381,6 +382,10 @@ async function main() {
     check('antrean kosong tidak error', executePlan({ intent: 'top_priority' }, { cases: [], patterns: [] }).rows.length === 0);
   }
 
+  {
+    const noKey = await listAvailableModels(undefined);
+    check('diagnosa model tanpa kunci -> 503 dan tidak membocorkan apa pun', noKey.status === 503 && !JSON.stringify(noKey.json).includes('AIza'), noKey);
+  }
   console.log('Ingatan pertanyaan');
   {
     const mem: Record<string, string> = {};

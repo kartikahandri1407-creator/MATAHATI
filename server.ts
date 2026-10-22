@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { runAnalysis } from './src/server/analyzeCore';
 import { handleDb } from './src/server/dbHandler';
-import { runAsk } from './src/server/askCore';
+import { runAsk, listAvailableModels } from './src/server/askCore';
 
 dotenv.config();
 
@@ -39,6 +39,11 @@ async function startServer() {
   });
 
   // Tanya-jawab petugas: model hanya menerjemahkan pertanyaan (tanpa data kasus)
+  app.get('/api/ask', async (req, res) => {
+    if (String(req.query.models || '') !== '1') return res.status(405).json({ error: 'Metode tidak didukung.' });
+    const out = await listAvailableModels(process.env.GEMINI_API_KEY);
+    res.status(out.status).json(out.json);
+  });
   app.post('/api/ask', async (req, res) => {
     const out = await runAsk({ body: req.body, apiKey: process.env.GEMINI_API_KEY, clientId: clientIdOf(req) });
     res.status(out.status).json(out.json);
