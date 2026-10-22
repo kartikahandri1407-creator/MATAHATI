@@ -3,6 +3,8 @@ import { DummyClaim, Facility } from '../types/matahati';
 import { Collection } from '../data/store';
 import { EMPTY_CLAIM, FACILITY_TYPE_LABEL, SCENARIO_LABEL, Scenario, claimSummary } from '../data/claimUtils';
 import { Download, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react';
+import { fmtTanggal } from '../data/format';
+import { PageHeader } from './PageHeader';
 import { CSV_TEMPLATE, ImportResult, importClaimsCsv } from '../data/csvImport';
 
 interface Props {
@@ -78,10 +80,8 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Data Master</h2>
-        <p className="text-sm text-slate-600 mt-1">Kelola data faskes dan klaim yang dipakai sebagai pembanding. Semua isian ini data contoh (fiktif): bebas ditambah, diubah, atau dihapus. Perubahan tersimpan otomatis.</p>
-      </div>
+      <PageHeader eyebrow="Pengelola" title="Data Klaim" text="Catatan klaim dan faskes yang menjadi pembanding jawaban peserta. Di produksi, halaman ini menjadi titik hubung ke sistem klaim BPJS Kesehatan; di prototipe, di sinilah data fiktif dimasukkan, diubah, atau diimpor lewat CSV." />
+      <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600 leading-relaxed">Hanya Pengelola yang membuka halaman ini. Impor CSV membuang kolom identitas peserta secara otomatis, dan semua isian di sini fiktif. Perubahan tersimpan otomatis dan terlihat oleh semua peran.</div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
@@ -115,7 +115,7 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
               {claims.items.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">Belum ada klaim. Klik Tambah.</td></tr>}
               {claims.items.map(c => (
                 <tr key={c.claim_key} className="border-t border-slate-100">
-                  <td className="p-3 font-mono text-xs">{c.sep_number}</td><td className="p-3">{c.facility_name}</td><td className="p-3 whitespace-nowrap">{c.service_date}</td>
+                  <td className="p-3 font-mono text-xs">{c.sep_number}</td><td className="p-3">{c.facility_name}</td><td className="p-3 whitespace-nowrap">{fmtTanggal(c.service_date)}</td>
                   <td className="p-3">{SCENARIO_LABEL[c.scenario]}</td><td className="p-3 text-slate-600">{claimSummary(c)}</td>
                   <td className="p-3 whitespace-nowrap">
                     <button type="button" aria-label="Ubah" onClick={() => { setFormError(null); setClaimForm({ isNew: false, item: { ...c } }); }} className="p-1.5 rounded hover:bg-slate-100"><Pencil className="w-4 h-4" /></button>
@@ -212,7 +212,7 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
             {imp.res.ignoredColumns.length > 0 && <p className="text-sm text-emerald-800 bg-emerald-50 rounded-lg p-3">Kolom identitas tidak dibaca dan tidak disimpan: <b>{imp.res.ignoredColumns.join(', ')}</b>. Semua klaim masuk sebagai anonim.</p>}
             {imp.res.unknownColumns.length > 0 && <p className="text-xs text-slate-500">Kolom tidak dikenali (dilewati): {imp.res.unknownColumns.join(', ')}</p>}
             {imp.res.errors.length > 0 && <ul className="text-sm text-rose-800 list-disc pl-5 space-y-0.5 max-h-40 overflow-y-auto">{imp.res.errors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}{imp.res.errors.length > 20 && <li>dan {imp.res.errors.length - 20} lainnya</li>}</ul>}
-            <p className="text-xs text-slate-500">Gunakan hanya data simulasi atau yang sudah dianonimkan dan diizinkan tertulis.</p>
+            <p className="text-xs text-slate-500">Gunakan hanya data fiktif atau yang sudah dianonimkan dan diizinkan tertulis.</p>
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => setImp(null)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm">Batal</button>
               <button type="button" disabled={imp.res.claims.length === 0} onClick={runImport} className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50">Masukkan {imp.res.claims.length} klaim</button>

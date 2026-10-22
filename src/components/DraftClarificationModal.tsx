@@ -27,7 +27,7 @@ export const DraftClarificationModal: React.FC<DraftClarificationModalProps> = (
   const defaultLetterNumber = `[NOMOR SURAT]`;
 
   const generateDraftText = () => {
-    return `*** DRAF SIMULASI, BUKAN SURAT RESMI ***
+    return `*** DRAF SURAT KONFIRMASI: belum resmi, perlu ditinjau petugas ***
 
 [KOP SURAT INSTANSI]
 
@@ -90,7 +90,7 @@ Hormat kami,
           timestamp: new Date().toISOString(),
           user_role: 'Petugas Verifikator BPJS',
           action: 'DRAFT_CLARIFICATION_CREATED',
-          note: `Draf simulasi surat konfirmasi dibuat.`
+          note: `Draf surat konfirmasi dibuat.`
         }
       ]
     };
@@ -106,7 +106,7 @@ Hormat kami,
         <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <div className="text-xs text-slate-500 mb-0.5">
-              <span>Draf simulasi surat konfirmasi · </span>
+              <span>Draf surat konfirmasi · </span>
               <span>·</span>
               <span className="font-mono font-bold text-slate-900">{caseRecord.case_id}</span>
             </div>

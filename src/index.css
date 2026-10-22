@@ -69,3 +69,18 @@ body { padding-bottom: env(safe-area-inset-bottom); }
 
 .hero::after { z-index: 0; pointer-events: none; }
 .hero > * { position: relative; z-index: 1; }
+
+/* ---- Tampilan: sisi samping, kartu, judul halaman ---- */
+.side { background: linear-gradient(180deg, #0b2f6b 0%, #071d44 100%); color: #fff; box-shadow: 1px 0 0 rgba(255,255,255,.06); }
+.card { background: #fff; border: 1px solid var(--color-slate-200); border-radius: 18px; box-shadow: 0 1px 2px rgba(10,42,94,.05), 0 18px 32px -24px rgba(10,42,94,.28); }
+.card-hover { transition: box-shadow .2s, transform .2s, border-color .2s; }
+.card-hover:hover { box-shadow: 0 1px 2px rgba(10,42,94,.06), 0 22px 36px -20px rgba(10,42,94,.34); border-color: var(--color-slate-300); }
+.eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--color-emerald-700); }
+.page-title { font-size: 1.75rem; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; color: var(--color-tinta); }
+.btn-primary { background: var(--color-emerald-700); color: #fff; font-weight: 700; border-radius: 12px; transition: background .15s, box-shadow .15s; box-shadow: 0 8px 18px -10px rgba(21,115,58,.7); }
+.btn-primary:hover { background: var(--color-emerald-800); }
+.btn-primary:disabled { background: var(--color-slate-300); box-shadow: none; }
+.btn-ghost { border: 1px solid var(--color-slate-300); background: #fff; color: var(--color-slate-700); font-weight: 600; border-radius: 12px; }
+.btn-ghost:hover { background: var(--color-slate-50); }
+.tl-line { position: absolute; left: 9px; top: 20px; bottom: -6px; width: 2px; background: var(--color-slate-200); }
+@media print { .side, nav { display: none !important; } }

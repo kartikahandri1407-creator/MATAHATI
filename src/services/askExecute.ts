@@ -5,7 +5,7 @@
  */
 import { CaseRecord, FacilityPattern } from '../types/matahati';
 import { RISK_LABEL } from '../data/claimUtils';
-import { VERIFICATION_LABEL, queueGroup } from '../data/workflow';
+import { STAGES, STAGE_LABEL, caseGroup, caseStage } from '../data/stage';
 import { summarizeOutcomes } from '../data/outcomes';
 import { AskPlan } from './askPlanCore';
 
@@ -26,12 +26,12 @@ export function executePlan(plan: AskPlan, ctx: AskContext): AskAnswer {
   const now = ctx.now ?? Date.now();
   const total = ctx.cases.length;
   const method = `Dihitung program dari ${total} kasus di perangkat ini. AI hanya membaca pertanyaan; data kasus tidak dikirim ke AI.`;
-  const notDone = ctx.cases.filter(c => queueGroup(c.verification_status) !== 'DONE');
+  const notDone = ctx.cases.filter(c => caseGroup(c) !== 'DONE');
 
   switch (plan.intent) {
     case 'top_priority': {
       const n = plan.limit ?? 3;
-      const open = ctx.cases.filter(c => queueGroup(c.verification_status) === 'OPEN');
+      const open = ctx.cases.filter(c => caseGroup(c) === 'OPEN');
       const sc = (c: { case_id: string }) => ctx.scoreOf?.(c.case_id) ?? 0;
       const sorted = [...open].sort((a, b) => sc(b) - sc(a));
       let ranked = sorted.slice(0, n);
@@ -62,16 +62,16 @@ export function executePlan(plan: AskPlan, ctx: AskContext): AskAnswer {
       return {
         title: 'Kasus yang paling lama menunggu',
         summary: ranked.length ? `${ranked.length} kasus belum selesai dengan masa tunggu terlama.` : 'Tidak ada kasus yang belum selesai.',
-        rows: ranked.map(c => ({ label: `${c.case_id} · ${c.facility_name}`, value: `${daysSince(c.created_at, now)} hari sejak masuk · ${VERIFICATION_LABEL[c.verification_status]}`, caseId: c.case_id })),
+        rows: ranked.map(c => ({ label: `${c.case_id} · ${c.facility_name}`, value: `${daysSince(c.created_at, now)} hari sejak masuk · ${STAGE_LABEL[caseStage(c)]}`, caseId: c.case_id })),
         method
       };
     }
     case 'count_status': {
-      const g = (k: 'OPEN' | 'PROGRESS' | 'DONE') => ctx.cases.filter(c => queueGroup(c.verification_status) === k).length;
+      const g = (k: 'OPEN' | 'PROGRESS' | 'DONE') => ctx.cases.filter(c => caseGroup(c) === k).length;
       if (plan.group) return { title: GROUP_LABEL[plan.group], summary: `${g(plan.group)} dari ${total} kasus.`, rows: [], method };
       return {
         title: 'Jumlah kasus per tahap', summary: `${total} kasus seluruhnya.`,
-        rows: (['OPEN', 'PROGRESS', 'DONE'] as const).map(k => ({ label: GROUP_LABEL[k], value: String(g(k)) })), method
+        rows: STAGES.map(st => ({ label: STAGE_LABEL[st], value: String(ctx.cases.filter(c => caseStage(c) === st).length) })), method
       };
     }
     case 'count_risk': {
@@ -88,7 +88,7 @@ export function executePlan(plan: AskPlan, ctx: AskContext): AskAnswer {
       return {
         title: `Kasus pada faskes "${plan.facility_query}"`,
         summary: found.length ? `${found.length} kasus ditemukan.` : 'Tidak ada faskes dengan nama itu pada data. Coba tulis sebagian namanya.',
-        rows: found.slice(0, 10).map(c => ({ label: `${c.case_id} · ${c.facility_name}`, value: `${RISK_LABEL[c.risk_type]} · ${VERIFICATION_LABEL[c.verification_status]}`, caseId: c.case_id })),
+        rows: found.slice(0, 10).map(c => ({ label: `${c.case_id} · ${c.facility_name}`, value: `${RISK_LABEL[c.risk_type]} · ${STAGE_LABEL[caseStage(c)]}`, caseId: c.case_id })),
         method
       };
     }
@@ -97,11 +97,8 @@ export function executePlan(plan: AskPlan, ctx: AskContext): AskAnswer {
       return {
         title: 'Hasil pemeriksaan sejauh ini', summary: `Dari ${o.total} laporan.`,
         rows: [
-          { label: 'Ditutup petugas', value: String(o.closed) },
-          { label: 'Diteruskan ke verifikasi lapangan', value: String(o.escalated) },
-          { label: 'Menunggu jawaban faskes', value: String(o.waitingFaskes) },
-          { label: 'Faskes sudah menjawab', value: String(o.faskesAnswered) },
-          { label: 'Penjelasan wajar dari faskes', value: String(o.benignAnswers) }
+          ...STAGES.filter(st => st !== 'SESUAI').map(st => ({ label: STAGE_LABEL[st], value: String(o.stages[st]) })),
+          { label: 'Jawaban faskes berupa penjelasan wajar', value: `${o.benignAnswers} dari ${o.faskesAnswered}` }
         ], method
       };
     }

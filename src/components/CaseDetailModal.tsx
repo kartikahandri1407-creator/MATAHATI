@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Timeline } from './Timeline';
+import { caseTimeline } from '../data/stage';
+import { fmtWaktu } from '../data/format';
 import { CaseRecord, VerificationStatus, FacilityPattern } from '../types/matahati';
 import { PriorityScore } from '../services/priorityScore';
 import { PriorityBreakdown } from './PriorityBreakdown';
@@ -322,7 +325,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
               <h4 className="text-sm font-bold text-sky-900">Konfirmasi dari faskes</h4>
               <p className="text-sm text-sky-900"><b>{caseRecord.facility_response.reason}</b></p>
               {caseRecord.facility_response.note && <p className="text-sm text-sky-900">“{caseRecord.facility_response.note}”</p>}
-              <p className="text-xs text-sky-700">Diterima {new Date(caseRecord.facility_response.at).toLocaleString('id-ID')} (simulasi). Nilai jawaban ini, lalu tentukan tindak lanjut di bawah.</p>
+              <p className="text-xs text-sky-700">Diterima {fmtWaktu(caseRecord.facility_response.at)}. Nilai jawaban ini, lalu tentukan tindak lanjut di bawah.</p>
             </div>
           )}
 
@@ -445,18 +448,8 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
 
             {/* Riwayat Audit */}
             <div className="pt-2">
-              <span className="font-semibold text-slate-800 block mb-1.5">Riwayat Catatan Audit:</span>
-              <div className="space-y-1.5">
-                {caseRecord.audit_log.map((log, idx) => (
-                  <div key={idx} className="p-2 bg-slate-50 rounded border border-slate-200 text-[11px] text-slate-600">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span className="font-medium text-slate-700">{log.user_role} ({log.action})</span>
-                      <span>{new Date(log.timestamp).toLocaleString('id-ID')}</span>
-                    </div>
-                    <p className="text-slate-700 mt-0.5">{log.note}</p>
-                  </div>
-                ))}
-              </div>
+              <span className="font-semibold text-slate-800 block mb-2">Jejak kasus (posisi laporan dari waktu ke waktu):</span>
+              <Timeline events={caseTimeline(caseRecord, 'petugas')} showActor />
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { CORE_SCENARIOS } from '../data/claimUtils';
 import evalCasesData from '../data/evalCases.json';
 import claimsSeed from '../data/dummyClaims.json';
 import { buildFairnessSets, runFairnessSet, summarizeFairness, FairnessSetResult } from '../services/fairness';
+import { PageHeader } from './PageHeader';
 import { Info, Loader2, Play, Scale } from 'lucide-react';
 
 type Engine = 'LOCAL' | 'GEMINI';
@@ -82,10 +83,16 @@ export const EvaluationModal: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Evaluasi</h2>
-        <p className="text-sm text-slate-600 mt-1">Menguji seberapa sering hasil sistem sama dengan label yang kami tentukan sendiri pada {cases.length} cerita contoh.</p>
-      </div>
+      <PageHeader eyebrow="Pengelola" title="Uji Kualitas AI" text="Bukti terukur bahwa pembacaan cerita akurat, konsisten, dan adil. Tiga bagian di bawah menjawab tiga pertanyaan juri." />
+      <ol className="grid md:grid-cols-3 gap-4 text-sm">
+        {[
+          ['Akurat?', `Sistem menilai ${cases.length} cerita contoh yang labelnya sudah kami tentukan. Semakin banyak hasil yang sama dengan label, semakin akurat.`],
+          ['Adil?', 'Fakta yang sama diuji ulang dengan wilayah dan gaya bahasa berbeda. Hasil yang adil tidak berubah karena hal itu.'],
+          ['Mengapa tiga pelapor?', 'Simulasi skala menunjukkan bahwa ambang tiga pelapor berbeda menekan faskes baik yang salah ditandai.']
+        ].map(([t, x], i) => (
+          <li key={t} className="card p-4"><div className="text-[11px] font-extrabold tracking-wider uppercase text-emerald-700">Bagian {i + 1}</div><div className="font-bold text-slate-900 mt-0.5">{t}</div><p className="text-slate-600 mt-1 leading-relaxed">{x}</p></li>
+        ))}
+      </ol>
 
       <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-sm text-amber-950 flex gap-3">
         <Info className="w-5 h-5 shrink-0 text-amber-700 mt-0.5" />

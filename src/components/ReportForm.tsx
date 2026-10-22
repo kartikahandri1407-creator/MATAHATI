@@ -1,3 +1,4 @@
+import { fmtTanggal } from '../data/format';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CaseRecord, DummyClaim, RiskType, TriageResult } from '../types/matahati';
 import { requestTriageAnalysis } from '../ai/geminiClient';
@@ -170,12 +171,12 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
         <div className="space-y-2">
           <label htmlFor="layanan" className="font-bold text-tinta">Layanan yang dicek</label>
           {claims.length === 0 ? (
-            <div className="text-slate-600 bg-white rounded-xl p-4 border border-slate-200">Belum ada layanan di basis data. <button type="button" onClick={onGoToDataMaster} className="text-emerald-800 font-semibold underline">Tambah di Data Master</button>.</div>
+            <div className="text-slate-600 bg-white rounded-xl p-4 border border-slate-200">Belum ada layanan yang bisa dicek. Layanan muncul setelah pengelola mengisi Data Klaim.</div>
           ) : (
             <select id="layanan" aria-label="Pilih klaim" value={claimKey} onChange={e => { setClaimKey(e.target.value); setResult(null); setAns({ n: '', choice: '' }); }} className="w-full rounded-xl border-2 border-slate-300 bg-white p-3.5 text-base focus:border-emerald-700">
               <option value="">Pilih layanan lain</option>
-              {grouped.core.length > 0 && <optgroup label="Obat, tindakan, lama rawat">{grouped.core.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {c.service_date} · {SCENARIO_LABEL[c.scenario]}{tag(c.claim_key)}</option>)}</optgroup>}
-              {grouped.rest.length > 0 && <optgroup label="Jenis lain (masih eksperimen)">{grouped.rest.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {c.service_date} · {SCENARIO_LABEL[c.scenario]}</option>)}</optgroup>}
+              {grouped.core.length > 0 && <optgroup label="Obat, tindakan, lama rawat">{grouped.core.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {fmtTanggal(c.service_date)} · {SCENARIO_LABEL[c.scenario]}{tag(c.claim_key)}</option>)}</optgroup>}
+              {grouped.rest.length > 0 && <optgroup label="Jenis lain (masih eksperimen)">{grouped.rest.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {fmtTanggal(c.service_date)} · {SCENARIO_LABEL[c.scenario]}</option>)}</optgroup>}
             </select>
           )}
           {claims.length > 0 && (() => { const total = grouped.core.length, done = grouped.core.filter(c => doneSet.has(c.claim_key)).length; return total > 0 ? <p className="text-sm text-slate-500">{done === total ? `Semua ${total} layanan sudah Anda cek. Terima kasih.` : `${done} dari ${total} layanan sudah Anda cek.`}</p> : null; })()}
@@ -197,11 +198,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
           <section className="struk" aria-label="Yang tercatat atas nama Anda">
             <div className="bg-tinta text-white rounded-t-[14px] px-5 py-3 flex items-center justify-between gap-3">
               <span className="font-bold">Tercatat atas nama Anda</span>
-              <span className="text-xs text-white/70">simulasi</span>
+              
             </div>
             <div className="px-5 pt-4 pb-6">
               <div className="text-xl font-extrabold text-tinta leading-snug">{claim.facility_name}</div>
-              <div className="text-sm text-slate-500 mb-3">{claim.service_date} · {claim.sep_number}</div>
+              <div className="text-sm text-slate-500 mb-3">{fmtTanggal(claim.service_date)} · <span className="font-mono">{claim.sep_number}</span></div>
               <div className="struk-row"><span className="text-slate-600">Layanan</span><span className="font-semibold text-right">{claimSummary(claim)}</span></div>
               <div className="struk-row"><span className="text-slate-600">Dibayarkan program JKN</span><span className="font-semibold">Rp {claim.claim_amount.toLocaleString('id-ID')}</span></div>
               <div className="struk-row"><span className="text-slate-600">Biaya tambahan untuk Anda</span><span className="font-semibold">tidak tercatat</span></div>

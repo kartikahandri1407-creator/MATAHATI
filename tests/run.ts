@@ -9,7 +9,8 @@ import { handleDb } from '../src/server/dbHandler';
 import { computeDeterministicReconciliation } from '../src/services/reconciliation';
 import { validateAndSanitizeTriageResult } from '../src/services/validator';
 import { computeFacilityPatterns } from '../src/services/aggregation';
-import { summarizeOutcomes, waitingDays } from '../src/data/outcomes';
+import { summarizeOutcomes, waitingDays, demoNow } from '../src/data/outcomes';
+import { caseStage, caseTimeline, pesertaProgress, countByStage, STAGES } from '../src/data/stage';
 import { scoreCase, levelOf } from '../src/services/priorityScore';
 import { LOS_REF, lookupLosRef, lookupReadmitRef } from '../src/data/refStats';
 import { listAvailableModels } from '../src/server/askCore';
@@ -441,6 +442,20 @@ async function main() {
       return v.claim.facility_id === 'FK-ADIL-01' ? { ...t, status: 'CONSISTENT' as const } : t;
     });
     check('mesin yang memperlakukan satu wilayah berbeda terdeteksi (tidak konsisten)', !bias.consistent && bias.outcomes.filter(o => !o.same).length === 1, bias.outcomes);
+  }
+
+
+  console.log('Tahap kasus (satu sumber)');
+  {
+    const cs = demoCasesJson as any[];
+    const by = countByStage(cs);
+    check('jumlah semua tahap sama dengan jumlah kasus', STAGES.reduce((a, s) => a + by[s], 0) === cs.length, by);
+    check('setiap kasus punya tepat satu tahap yang dikenal', cs.every(c => STAGES.includes(caseStage(c))));
+    check('ringkasan hasil memakai hitungan tahap yang sama', summarizeOutcomes(cs).stages.DITUTUP === by.DITUTUP);
+    check('kasus yang selesai bagi petugas juga selesai bagi peserta', cs.every(c => (caseStage(c) === 'DITUTUP') === (pesertaProgress(c).done && caseStage(c) !== 'SESUAI')));
+    check('jejak peserta tidak memuat catatan internal petugas', cs.every(c => caseTimeline(c, 'peserta').every(e => !/skor|indeks|prioritas|faskes menjawab/i.test(e.title + (e.detail || '')))));
+    check('jam demo tidak melewati sehari setelah kejadian terbaru', demoNow(cs, Date.parse('2030-01-01')) < Date.parse('2027-01-01'));
+    check('jam demo sama dengan jam nyata bila ada kejadian hari ini', demoNow([{ ...cs[0], created_at: new Date().toISOString(), audit_log: [] }]) <= Date.now());
   }
 
   console.log(`\n${passed} lulus, ${failed} gagal`);

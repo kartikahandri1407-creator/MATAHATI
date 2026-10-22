@@ -33,7 +33,7 @@ export const SimulasiSkala: React.FC = () => {
   }, [resp, badFac, badClaim, falseRep]);
 
   return (
-    <section className="max-w-5xl mx-auto px-4 pb-10 space-y-5">
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-10 space-y-5">
       <div className="hero rounded-3xl p-6 text-white space-y-2">
         <div className="text-xs font-bold uppercase tracking-[.18em] text-matahari">Simulasi skala · asumsi bisa diubah</div>
         <h3 className="text-2xl font-extrabold leading-tight">Mengapa butuh 3 pelapor berbeda?</h3>

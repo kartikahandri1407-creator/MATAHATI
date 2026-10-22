@@ -3,9 +3,12 @@
  * Fungsi murni (tanpa tampilan) agar mudah diuji.
  */
 import { CaseRecord } from '../types/matahati';
+import { Stage, countByStage } from './stage';
 
 export interface Outcomes {
   total: number;
+  /** Jumlah kasus per tahap; semuanya bersama-sama sama dengan total. */
+  stages: Record<Stage, number>;
   closed: number;            // ditutup petugas
   escalated: number;         // diteruskan ke verifikasi lapangan
   waitingFaskes: number;     // menunggu jawaban faskes
@@ -24,6 +27,7 @@ export function summarizeOutcomes(cases: CaseRecord[]): Outcomes {
   for (const c of answered) { const r = c.facility_response!.reason; tally.set(r, (tally.get(r) || 0) + 1); }
   return {
     total: cases.length,
+    stages: countByStage(cases),
     closed: cases.filter(c => c.verification_status === 'CLOSED_NO_ACTION').length,
     escalated: cases.filter(c => c.verification_status === 'ESCALATED_FOR_OFFICIAL_PROCESS').length,
     waitingFaskes: cases.filter(c => c.verification_status === 'CLARIFICATION_DRAFTED').length,
@@ -38,4 +42,18 @@ export function waitingDays(c: CaseRecord, now = Date.now()): number | null {
   const e = [...(c.audit_log || [])].reverse().find(a => a.action === 'DRAFT_CLARIFICATION_CREATED');
   const t = e ? Date.parse(e.timestamp) : NaN;
   return Number.isFinite(t) ? Math.max(0, Math.floor((now - t) / 86_400_000)) : null;
+}
+
+/**
+ * "Jam demo": data contoh bertanggal September, sedangkan peragaan bisa dilakukan berminggu-minggu kemudian.
+ * Agar "menunggu N hari" tidak terbaca janggal, waktu acuan dibatasi satu hari setelah kejadian terbaru di antrean.
+ * Begitu ada laporan yang dibuat sungguhan hari ini, kejadian terbaru adalah hari ini dan jam demo sama dengan jam nyata.
+ */
+export function demoNow(cases: CaseRecord[], real = Date.now()): number {
+  let latest = 0;
+  for (const c of cases) {
+    const t0 = Date.parse(c.created_at); if (t0 > latest) latest = t0;
+    for (const l of c.audit_log || []) { const t = Date.parse(l.timestamp); if (t > latest) latest = t; }
+  }
+  return latest ? Math.min(real, latest + 86_400_000) : real;
 }
