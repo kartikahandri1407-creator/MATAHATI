@@ -84,3 +84,10 @@ body { padding-bottom: env(safe-area-inset-bottom); }
 .btn-ghost:hover { background: var(--color-slate-50); }
 .tl-line { position: absolute; left: 9px; top: 20px; bottom: -6px; width: 2px; background: var(--color-slate-200); }
 @media print { .side, nav { display: none !important; } }
+
+/* ---- Beranda: kemunculan halus dan animasi kecil ---- */
+.rv { opacity: 0; transform: translateY(16px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+.rv-in { opacity: 1; transform: none; }
+@keyframes landing-pop { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+.landing-pop { animation: landing-pop .35s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; transform: none; transition: none; } .landing-pop { animation: none; } .animate-bounce, .animate-ping { animation: none !important; } }
