@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight, BrainCircuit, Building2, Calculator, CheckCircle2, ClipboardCheck, Clock, Eye, Lock, Scale, ShieldCheck,
-  Smartphone, Sparkles, UserRound, Users, ChevronRight
+  Smartphone, Sparkles, UserRound, Users, ChevronRight, ArrowUp, FileText
 } from 'lucide-react';
 import { ROLES, Role } from '../data/roles';
-import { LOS_REF_DEFAULT, SAMPLE_INFO } from '../data/refStats';
 
 const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -52,13 +51,6 @@ const STORIES: { id: string; label: string; segs: Seg[]; received: number | null
   { id: 'santai', label: 'Bahasa santai', segs: ['resepnya 5 macam obat, tapi yang dikasih apotek ', { hl: 'cuma 2' }, ' doang'], received: 2 },
   { id: 'daerah', label: 'Bahasa daerah', segs: ['Resepnya 5 obat, tapi neng apotek aku ', { hl: 'mung entuk 2 obat' }, '.'], received: 2 },
   { id: 'lupa', label: 'Tidak ingat', segs: ['Obatnya banyak, tapi ', { hl: 'saya lupa berapa' }, ' yang dikasih apotek.'], received: null }
-];
-
-const STATS: { value: string; label: string }[] = [
-  { value: '3', label: 'modus yang disasar: jumlah obat, tindakan yang tidak dilakukan, lama rawat' },
-  { value: SAMPLE_INFO.rawatInapN.toLocaleString('id-ID'), label: 'kunjungan rawat inap Data Sampel 2024 sebagai pembanding lama rawat' },
-  { value: '49', label: 'cerita uji untuk mengukur akurasi dan keadilan pembacaan AI' },
-  { value: '0', label: 'nama atau nomor kartu peserta yang dikirim ke AI' }
 ];
 
 const PRINCIPLES: { title: string; text: string; Icon: React.ElementType }[] = [
@@ -182,15 +174,26 @@ export const Landing: React.FC<{ onEnter: (role: Role) => void }> = ({ onEnter }
         </div>
       </section>
 
-      {/* ===== Angka ===== */}
-      <section className="bg-white border-y border-slate-200/70">
-        <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-10 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-8">
-          {STATS.map((s, i) => (
-            <Reveal key={s.label} delay={i * 70} className="space-y-1.5">
-              <div className="text-[38px] sm:text-5xl font-extrabold tracking-[-0.03em] text-tinta leading-none">{s.value}</div>
-              <p className="text-[14px] leading-snug text-slate-500 max-w-[230px]">{s.label}</p>
+      {/* ===== Mengapa ===== */}
+      <section id="mengapa" className="bg-white border-y border-slate-200/70 scroll-mt-16">
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-16 lg:py-24 grid lg:grid-cols-[1fr_1.15fr] gap-10 lg:gap-16 items-center">
+          <Reveal className="space-y-4">
+            <div className="text-[12px] font-extrabold tracking-[0.18em] uppercase text-emerald-700">Mengapa MATA HATI</div>
+            <h2 className="text-[30px] sm:text-[42px] font-extrabold tracking-[-0.02em] leading-[1.1] text-tinta">Selama ini, hanya satu pihak yang bersuara.</h2>
+            <p className="text-[17px] sm:text-lg leading-relaxed text-slate-600 max-w-[480px]">Klaim diperiksa dari dokumen yang disusun faskes. Peserta, yang tahu langsung apa yang ia terima, belum punya jalur sederhana untuk ikut menguatkan pemeriksaan.</p>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 gap-4 lg:gap-5">
+            <Reveal delay={80} className="rounded-3xl border border-slate-200 bg-slate-50 p-6 space-y-3 h-full">
+              <span className="w-11 h-11 rounded-2xl bg-white border border-slate-200 text-slate-500 grid place-items-center"><FileText className="w-5 h-5" aria-hidden="true" /></span>
+              <div className="text-[11px] font-extrabold tracking-[.14em] uppercase text-slate-500">Selama ini</div>
+              <p className="text-[16px] leading-relaxed text-slate-700">Pemeriksaan bertumpu pada dokumen faskes. Jumlah obat, tindakan, dan hari rawat sulit dicocokkan dengan pengalaman peserta.</p>
             </Reveal>
-          ))}
+            <Reveal delay={170} className="rounded-3xl border border-emerald-300 bg-emerald-50 p-6 space-y-3 h-full shadow-[0_24px_44px_-28px_rgba(21,115,58,.6)]">
+              <span className="w-11 h-11 rounded-2xl bg-emerald-700 text-white grid place-items-center"><Eye className="w-5 h-5" aria-hidden="true" /></span>
+              <div className="text-[11px] font-extrabold tracking-[.14em] uppercase text-emerald-800">Dengan MATA HATI</div>
+              <p className="text-[16px] leading-relaxed text-slate-800">Satu jawaban peserta menjadi pembanding. Selisih dihitung program, dan hasilnya hanya menjadi prioritas pemeriksaan, bukan tuduhan.</p>
+            </Reveal>
+          </div>
         </div>
       </section>
 
@@ -348,12 +351,37 @@ export const Landing: React.FC<{ onEnter: (role: Role) => void }> = ({ onEnter }
       </section>
 
       <footer className="bg-white border-t border-slate-200">
-        <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-10 grid md:grid-cols-[1fr_auto] gap-6 items-start">
-          <div className="space-y-2">
-            <div className="text-xl font-extrabold">MATA<span className="text-emerald-700"> HATI</span></div>
-            <p className="text-sm leading-relaxed text-slate-500 max-w-[640px]">Prototipe Healthkathon BPJS Kesehatan 2026 oleh Tim PUAN KARSA. Klaim dan cerita adalah data fiktif yang mengikuti sebaran Data Sampel BPJS Kesehatan 2024; nama faskes rekaan, tidak ada data peserta JKN yang nyata. Bukan produk resmi BPJS Kesehatan.</p>
+        <div className="max-w-[1200px] mx-auto px-5 sm:px-6 pt-14 pb-8 grid md:grid-cols-[1.4fr_1fr_1fr] gap-10 md:gap-12">
+          <div className="space-y-4 max-w-[400px]">
+            <div className="flex items-center gap-2.5 text-2xl font-extrabold tracking-tight"><span className="w-9 h-9 rounded-xl bg-tinta text-white grid place-items-center"><Eye className="w-5 h-5" aria-hidden="true" /></span>MATA <span className="text-emerald-700 -ml-1.5">HATI</span></div>
+            <p className="text-[15px] leading-relaxed text-slate-600">Pasien tahu apa yang diterimanya. Sekarang, sistem pun tahu.</p>
+            <p className="text-[13px] leading-relaxed text-slate-500">Klaim dan cerita di prototipe ini adalah data fiktif yang mengikuti sebaran Data Sampel BPJS Kesehatan 2024. Nama faskes rekaan, dan tidak ada data peserta JKN yang nyata.</p>
           </div>
-          <div className="text-sm text-slate-500 md:text-right">Pembanding lama rawat: median {LOS_REF_DEFAULT.median} hari, persentil 90 = {LOS_REF_DEFAULT.p90} hari (seluruh diagnosis).</div>
+          <nav aria-label="Jelajahi" className="space-y-3">
+            <div className="text-[12px] font-extrabold tracking-[.14em] uppercase text-slate-500">Jelajahi</div>
+            <ul className="space-y-2 text-[15px] font-semibold text-tinta">
+              <li><button type="button" onClick={() => scrollTo('alur')} className="hover:text-emerald-700">Alur kerja</button></li>
+              <li><button type="button" onClick={() => scrollTo('ai')} className="hover:text-emerald-700">Peran AI</button></li>
+              <li><button type="button" onClick={() => scrollTo('prinsip')} className="hover:text-emerald-700">Prinsip</button></li>
+              <li><button type="button" onClick={() => onEnter('peserta')} className="hover:text-emerald-700">Coba sebagai peserta</button></li>
+              <li><button type="button" onClick={() => onEnter('petugas')} className="hover:text-emerald-700">Coba sebagai petugas</button></li>
+              <li><button type="button" onClick={() => onEnter('faskes')} className="hover:text-emerald-700">Coba sebagai faskes</button></li>
+            </ul>
+          </nav>
+          <div className="space-y-3">
+            <div className="text-[12px] font-extrabold tracking-[.14em] uppercase text-slate-500">Proyek</div>
+            <ul className="space-y-2 text-[15px] text-slate-600 leading-snug">
+              <li>Healthkathon BPJS Kesehatan 2026</li>
+              <li>Kategori: Efisiensi Risiko pada Fasilitas Kesehatan</li>
+              <li>Dikembangkan oleh Tim PUAN KARSA</li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-slate-200">
+          <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[13px] text-slate-500">
+            <span>Prototipe · data fiktif · bukan produk resmi BPJS Kesehatan</span>
+            <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="inline-flex items-center gap-1.5 font-bold text-tinta hover:text-emerald-700 self-start sm:self-auto"><ArrowUp className="w-4 h-4" aria-hidden="true" />Kembali ke atas</button>
+          </div>
         </div>
       </footer>
     </div>
