@@ -45,7 +45,7 @@ export function scoreCase(c: CaseRecord, patterns: FacilityPattern[], claims: Du
   };
 
   // 3) Konteks klaim: apakah angka pada klaim tidak lazim dibanding kasus serupa (maks 25)
-  let kon: ScoreFactor = { id: 'konteks', label: 'Konteks klaim dibanding kasus serupa', points: 0, max: 25, detail: 'Belum ada data pembanding untuk jenis layanan ini.' };
+  let kon: ScoreFactor = { id: 'konteks', label: 'Konteks klaim dibanding kasus serupa', points: 0, max: 25, detail: claim?.scenario === 'OBAT' ? 'Data sampel tidak memuat jumlah obat, jadi pembanding belum tersedia untuk jenis ini.' : 'Belum ada data pembanding untuk jenis layanan ini.' };
   if (isSignal(c) && (c.risk_type === 'PROLONGED_LOS' || claim?.scenario === 'LOS')) {
     const los = ce.length_of_stay_days ?? claim?.length_of_stay_days;
     if (los != null) {

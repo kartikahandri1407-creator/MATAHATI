@@ -1,8 +1,9 @@
 import { fmtTanggal } from '../data/format';
+import { describeMasked, maskPII } from '../services/piiMask';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CaseRecord, DummyClaim, RiskType, TriageResult } from '../types/matahati';
 import { requestTriageAnalysis } from '../ai/geminiClient';
-import { CORE_SCENARIOS, RISK_LABEL, SAMPLE_STORY, SCENARIO_LABEL, claimLabel, claimSummary, compressImage } from '../data/claimUtils';
+import { CORE_SCENARIOS, SAMPLE_STORY, SCENARIO_LABEL, answerText, claimLabel, claimSummary, compressImage } from '../data/claimUtils';
 
 type Answer = { n: string; choice: '' | 'ya' | 'tidak' | 'ragu' };
 import { AlertCircle, ArrowRight, Camera, CheckCircle2, Database, HelpCircle, Loader2, Mic, MicOff, Wand2 } from 'lucide-react';
@@ -14,10 +15,10 @@ interface ReportFormProps {
   isDemoMode: boolean;
   newCaseId: () => string;
   onCaseAnalyzed: (newCase: CaseRecord) => void;
-  onOpenCaseDetail: (caseRecord: CaseRecord) => void;
+  /** Dipanggil saat peserta menambah informasi atas pertanyaan lanjutan. */
+  onCaseUpdated?: (c: CaseRecord) => void;
   onGoToQueue: () => void;
   onGoToMine: () => void;
-  onGoToDataMaster: () => void;
 }
 
 /** Ubah jawaban terarah peserta menjadi kalimat berbahasa peserta (bukan menebak isi klaim). */
@@ -59,12 +60,11 @@ const STATUS_TEXT: Record<string, { label: string; cls: string }> = {
   INSUFFICIENT_EVIDENCE: { label: 'Informasi belum cukup', cls: 'text-slate-600' }
 };
 
-export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [], isDemoMode, newCaseId, onCaseAnalyzed, onOpenCaseDetail, onGoToQueue, onGoToMine, onGoToDataMaster }) => {
+export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [], isDemoMode, newCaseId, onCaseAnalyzed, onCaseUpdated, onGoToQueue, onGoToMine }) => {
   const [claimKey, setClaimKey] = useState('');
   const [inputBy, setInputBy] = useState<'PESERTA_MANDIRI' | 'KADER_PENDAMPING'>('PESERTA_MANDIRI');
   const [storyText, setStoryText] = useState('');
   const [ans, setAns] = useState<Answer>({ n: '', choice: '' });
-  const [showOfficer, setShowOfficer] = useState(false);
   const [photo, setPhoto] = useState<{ data: string; name: string } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<CaseRecord | null>(null);
@@ -72,6 +72,10 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
   const [isRecording, setIsRecording] = useState(false);
   const [canDictate, setCanDictate] = useState(false);
   const recRef = useRef<any>(null);
+  const [fuText, setFuText] = useState('');
+  const [fuBusy, setFuBusy] = useState(false);
+  const [fuRound, setFuRound] = useState(0);
+  const [fuErr, setFuErr] = useState<string | null>(null);
 
   const doneSet = useMemo(() => new Set(answeredKeys), [answeredKeys]);
   const tag = (k: string) => (doneSet.has(k) ? ' ✓ sudah dijawab' : '');
@@ -114,13 +118,15 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
     catch { setError('Foto tidak dapat dibaca. Gunakan file JPG atau PNG.'); }
   };
 
-  const reset = () => { setStoryText(''); setAns({ n: '', choice: '' }); setPhoto(null); setResult(null); setError(null); setShowOfficer(false); };
+  const reset = () => { setFuText(''); setFuRound(0); setFuErr(null); setStoryText(''); setAns({ n: '', choice: '' }); setPhoto(null); setResult(null); setError(null); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!claim) { setError('Pilih dulu klaim yang ingin dicocokkan.'); return; }
     const fromAnswer = answerToStory(claim, ans);
-    const finalStory = [fromAnswer, storyText.trim()].filter(Boolean).join(' ');
+    const rawStory = [fromAnswer, storyText.trim()].filter(Boolean).join(' ');
+    const masked = maskPII(rawStory, { knownNames: [claim.patient_name] });
+    const finalStory = masked.text;
     if (finalStory.length < 10) { setError('Jawab pertanyaan di atas, atau tulis sedikit cerita Anda.'); return; }
     if (finalStory.length > 3000) { setError('Cerita terlalu panjang (maksimal 3000 huruf).'); return; }
     setError(null); setIsAnalyzing(true);
@@ -140,6 +146,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
         input_by: inputBy,
         input_type: 'TEXT',
         patient_statement: finalStory,
+        privacy_masked: masked.total ? masked.found : undefined,
         reporter_id: getReporterId(),
         visual_evidence: photo ? { uploaded: true, file_name: photo.name } : undefined,
         verification_status: 'NEW',
@@ -151,6 +158,44 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
     } catch (err: any) {
       setError(err?.message || 'Gagal memproses. Coba lagi.');
     } finally { setIsAnalyzing(false); }
+  };
+
+  const followUpQuestion = (c: DummyClaim | null): string => {
+    switch (c?.scenario) {
+      case 'OBAT': return 'Berapa jenis obat yang Anda terima di apotek? Kalau lupa, tulis “lupa”.';
+      case 'TINDAKAN': return `Apakah Anda menjalani ${c.procedure_name || 'tindakan itu'}? Jawab “ya” atau “tidak”, dan ceritakan singkat.`;
+      case 'LOS': return 'Berapa hari kira-kira Anda dirawat? Tanggal masuk dan pulang juga boleh.';
+      case 'KUNJUNGAN_FIKTIF': return 'Berapa kali Anda datang ke faskes ini pada periode itu?';
+      case 'IUR_BIAYA': return 'Berapa rupiah yang Anda bayar di kasir, atau tidak membayar sama sekali?';
+      default: return 'Apa yang Anda alami di faskes ini? Tulis dengan kata-kata Anda sendiri.';
+    }
+  };
+
+  const submitFollowUp = async () => {
+    if (!result || !claim) return;
+    const m = maskPII(fuText.trim(), { knownNames: [claim.patient_name] });
+    if (m.text.length < 3) { setFuErr('Tulis jawaban singkat dulu.'); return; }
+    setFuErr(null); setFuBusy(true);
+    try {
+      const story = `${result.patient_statement} ${m.text}`.trim().slice(0, 3000);
+      const triage: TriageResult = await requestTriageAnalysis({
+        storyText: story, claim, photoBase64: photo?.data,
+        sourceChannel: result.input_by === 'KADER_PENDAMPING' ? 'KADER_PENDAMPING' : 'SIMULATED_FORM', inputBy: result.input_by, forceDemoMode: isDemoMode
+      });
+      const merged = [...(result.privacy_masked || [])];
+      for (const f of m.found) { const e = merged.find(x => x.kind === f.kind); if (e) e.count += f.count; else merged.push({ ...f }); }
+      const rec: CaseRecord = {
+        ...result, ...triage,
+        case_id: result.case_id, claim_key: result.claim_key, facility_id: result.facility_id, facility_name: result.facility_name,
+        service_date: result.service_date, input_by: result.input_by, input_type: result.input_type,
+        patient_statement: story, privacy_masked: merged.length ? merged : undefined,
+        reporter_id: result.reporter_id, verification_status: result.verification_status, created_at: result.created_at,
+        audit_log: [...result.audit_log, { timestamp: new Date().toISOString(), user_role: 'Peserta', action: 'FOLLOW_UP_ANSWERED', note: `Peserta menambah informasi. Hasil terbaru: ${triage.status}.` }]
+      };
+      setResult(rec); setFuText(''); setFuRound(n => n + 1);
+      onCaseUpdated?.(rec);
+    } catch (err: any) { setFuErr(err?.message || 'Gagal memproses. Coba lagi.'); }
+    finally { setFuBusy(false); }
   };
 
   const diffText = (r: CaseRecord) => {
@@ -165,6 +210,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
         <div className="text-xs font-bold uppercase tracking-[.18em] text-matahari">Cek Layanan JKN</div>
         <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">Yang tercatat atas nama Anda, sama dengan yang Anda alami?</h2>
         <p className="text-white/80 text-base">Cukup satu jawaban singkat. Anda jadi mata bagi layanan JKN, tanpa menuduh siapa pun.</p>
+        <div className="flex flex-wrap gap-2 pt-1 text-xs font-semibold"><span className="rounded-full bg-white/15 px-3 py-1">1 pertanyaan</span><span className="rounded-full bg-white/15 px-3 py-1">sekitar 30 detik</span><span className="rounded-full bg-white/15 px-3 py-1">tanpa mengetik</span></div>
       </div>
 
       <form onSubmit={submit} className="space-y-7">
@@ -245,11 +291,13 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
               <div className="px-4 pb-4 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <button type="button" onClick={() => setStoryText(SAMPLE_STORY[claim.scenario](claim))} className="text-sm px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 flex items-center gap-1.5"><Wand2 className="w-4 h-4" />Isi contoh</button>
-                  {canDictate && <button type="button" onClick={toggleMic} className={`text-sm px-3 py-2 rounded-lg border flex items-center gap-1.5 ${isRecording ? 'bg-rose-50 border-rose-200 text-rose-700' : 'border-slate-300 hover:bg-slate-50'}`}>{isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}{isRecording ? 'Berhenti' : 'Bicara'}</button>}
+                  {canDictate && <button type="button" onClick={toggleMic} className={`text-sm px-3 py-2 rounded-lg border flex items-center gap-1.5 ${isRecording ? 'bg-rose-50 border-rose-200 text-rose-700' : 'border-slate-300 hover:bg-slate-50'}`}>{isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}{isRecording ? 'Berhenti merekam' : 'Bicara (bahasa Indonesia)'}</button>}
                   <label className="text-sm px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"><Camera className="w-4 h-4" />{photo ? 'Ganti foto' : 'Foto'}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPhoto} className="hidden" /></label>
                 </div>
                 <textarea rows={4} value={storyText} onChange={e => setStoryText(e.target.value)} maxLength={3000} placeholder="Tulis dengan kata-kata Anda sendiri." className="w-full rounded-xl border-2 border-slate-300 p-3 text-base focus:border-emerald-700" />
-                <div className="flex justify-between text-sm text-slate-500"><span>{photo ? <>Foto: {photo.name} <button type="button" className="underline ml-1" onClick={() => setPhoto(null)}>hapus</button></> : 'Jangan tulis nama atau nomor kartu.'}</span><span>{storyText.length}/3000</span></div>
+                {canDictate ? <p className="text-xs text-slate-500">Tombol Bicara memakai layanan pengenal suara bawaan peramban Anda. Suara tidak disimpan oleh MATA HATI, dan teksnya tetap melewati penyamaran nama dan nomor.</p> : <p className="text-xs text-slate-500">Peramban ini belum mendukung input suara. Coba Chrome atau Edge, atau ketik saja.</p>}
+                {photo && <p className="text-xs text-amber-800">Pastikan foto tidak memperlihatkan nama, wajah, atau nomor kartu. Foto hanya dipakai untuk dibaca isinya.</p>}
+                <div className="flex justify-between text-sm text-slate-500"><span>{photo ? <>Foto: {photo.name} <button type="button" className="underline ml-1" onClick={() => setPhoto(null)}>hapus</button></> : maskPII(storyText, { knownNames: [claim.patient_name] }).total ? <span className="text-amber-800 font-semibold">Ada nama atau nomor di cerita. Bagian itu akan disamarkan otomatis saat dikirim.</span> : 'Jangan tulis nama atau nomor kartu.'}</span><span>{storyText.length}/3000</span></div>
               </div>
             </details>
 
@@ -272,47 +320,31 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
       {result && (
         <section className={`relative rounded-2xl p-6 border-l-8 bg-white shadow-sm ${result.status === 'CONSISTENT' ? 'border-emerald-600' : 'border-matahari'}`} aria-live="polite">
           <div className="cap absolute right-5 top-6 border-[3px] border-emerald-700 text-emerald-700 rounded-md px-3 py-1 font-extrabold text-lg">Diterima</div>
-          <p className="text-xl font-bold text-tinta leading-snug pr-28 min-h-[3.5rem]">{result.status === 'CONSISTENT' ? 'Terima kasih, sudah sesuai.' : result.status === 'INSUFFICIENT_EVIDENCE' ? 'Terima kasih. Kami butuh sedikit tambahan.' : 'Terima kasih. Jawaban Anda kami teruskan.'}</p>
-          <p className="mt-2 text-slate-700">{THANKS[result.status]}</p>
-          {result.status !== 'CONSISTENT' && diffText(result) && (
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center" aria-label="Perbandingan catatan dan jawaban">
-              <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-500">Tercatat</div><div className="text-sm font-bold text-tinta mt-1">{claimSummary(claim!)}</div></div>
-              <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-500">Menurut Anda</div><div className="text-sm font-bold text-tinta mt-1">{result.patient_evidence.received_quantity ?? result.patient_evidence.actual_visits_count ?? result.patient_evidence.length_of_stay_days ?? '-'}</div></div>
-              <div className="rounded-xl bg-matahari-soft p-3"><div className="text-xs text-slate-600">Selisih</div><div className="text-2xl font-extrabold text-tinta leading-none mt-1">{diffText(result)}</div></div>
+          <p className="text-xl font-bold text-tinta leading-snug pr-28 min-h-[3.5rem]">{result.status === 'CONSISTENT' ? 'Terima kasih, sudah sesuai.' : result.status === 'INSUFFICIENT_EVIDENCE' ? 'Terima kasih. Kami butuh sedikit tambahan.' : 'Terima kasih. Jawaban Anda sudah kami terima.'}</p>
+          <p className="mt-2 text-slate-700">{result.status === 'CONSISTENT' ? 'Jawaban Anda sama dengan catatan layanan. Tidak ada yang perlu Anda lakukan lagi. Jawaban yang sesuai juga berharga: ia membantu menunjukkan faskes yang melayani dengan baik.' : result.status === 'INSUFFICIENT_EVIDENCE' ? 'Informasi yang Anda berikan belum cukup untuk dibandingkan. Anda boleh menambah cerita bila ingin.' : 'Jawaban Anda berbeda dari yang tercatat, jadi laporan diteruskan ke petugas untuk dicek. Ini belum berarti ada yang salah. Rincian perbandingan baru tersedia setelah petugas memeriksa.'}</p>
+          {result.status !== 'CONSISTENT' && result.status !== 'INSUFFICIENT_EVIDENCE' && (
+            <ol className="mt-4 space-y-2 text-sm text-slate-700">
+              {['Petugas memeriksa laporan Anda.', 'Bila perlu, faskes diminta menjelaskan. Identitas Anda tidak dibagikan kepada faskes.', 'Anda bisa memantau perkembangannya di Laporan Saya.'].map((t, i) => (
+                <li key={t} className="flex items-start gap-3"><span className="mt-px w-5 h-5 shrink-0 rounded-full bg-tinta text-white text-[11px] font-bold grid place-items-center">{i + 1}</span>{t}</li>
+              ))}
+            </ol>
+          )}
+          {result.status === 'INSUFFICIENT_EVIDENCE' && fuRound < 2 && (
+            <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-4 space-y-2">
+              <label htmlFor="fu" className="block text-sm font-semibold text-amber-900">{followUpQuestion(claim)}</label>
+              <textarea id="fu" value={fuText} onChange={e => setFuText(e.target.value)} rows={2} maxLength={500} className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-base" placeholder="Tulis jawaban singkat…" />
+              {fuErr && <p className="text-sm text-rose-700" role="alert">{fuErr}</p>}
+              <button type="button" onClick={submitFollowUp} disabled={fuBusy} className="px-4 py-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-semibold disabled:opacity-60 inline-flex items-center gap-2">{fuBusy && <Loader2 className="w-4 h-4 animate-spin" />}Kirim tambahan</button>
+              <p className="text-xs text-amber-800">Nama dan nomor pribadi yang terketik otomatis disamarkan.</p>
             </div>
           )}
-          <p className="mt-3 text-sm text-slate-500">Nomor laporan <span className="font-mono font-semibold text-slate-800">{result.case_id}</span>. Simpan bila ingin menanyakan perkembangannya. Laporan ini dipakai untuk memeriksa pelayanan, bukan untuk menghukum siapa pun.</p>
+          {result.privacy_masked && result.privacy_masked.length > 0 && <p className="mt-3 text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">Untuk melindungi privasi Anda, {describeMasked(result.privacy_masked as any)} di cerita sudah disamarkan sebelum diproses.</p>}
+          <p className="mt-4 text-sm text-slate-500">Nomor laporan <span className="font-mono font-semibold text-slate-800">{result.case_id}</span>. Laporan ini dipakai untuk memeriksa pelayanan, bukan untuk menghukum siapa pun.</p>
           <div className="flex flex-wrap gap-2 pt-4">
-            <button type="button" onClick={() => setShowOfficer(v => !v)} className="px-4 py-2.5 rounded-lg border border-slate-300 font-semibold hover:bg-slate-50">{showOfficer ? 'Sembunyikan' : 'Lihat tampilan petugas'}</button>
             <button type="button" onClick={onGoToMine} className="px-4 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">Pantau laporan saya</button>
-            <button type="button" onClick={() => { const next = grouped.core.find(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)); reset(); if (next) setClaimKey(next.claim_key); }} className="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50">{grouped.core.some(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)) ? 'Cek layanan berikutnya' : 'Cek layanan lain'}</button>
+            <button type="button" onClick={() => { const next = grouped.core.find(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)); reset(); if (next) setClaimKey(next.claim_key); }} className="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50">{grouped.core.some(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)) ? 'Cek layanan lain' : 'Selesai'}</button>
           </div>
-        </section>
-      )}
-
-      {result && showOfficer && (
-        <section className="bg-white rounded-xl border-2 border-emerald-700/30 p-5 space-y-4" aria-live="polite">
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800"><CheckCircle2 className="w-4 h-4" />Tampilan petugas · <span className="font-mono">{result.case_id}</span></div>
-          <div>
-            <div className={`text-lg font-bold ${STATUS_TEXT[result.status].cls}`}>{STATUS_TEXT[result.status].label}</div>
-            <div className="text-sm text-slate-600">Jenis: {RISK_LABEL[result.risk_type as RiskType]}{result.processing_source ? ` · diproses oleh: ${result.processing_source.startsWith('GEMINI') ? 'Gemini (via server)' : 'mesin lokal (cadangan)'}` : ''}</div>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-3 text-sm">
-            <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500 mb-1">Menurut cerita peserta</div><div className="font-semibold">{result.patient_evidence.received_quantity != null ? `${result.patient_evidence.received_quantity} item diterima` : result.patient_evidence.actual_visits_count != null ? `${result.patient_evidence.actual_visits_count} kunjungan` : result.patient_evidence.length_of_stay_days != null ? `${result.patient_evidence.length_of_stay_days} hari rawat` : result.patient_evidence.stated_procedure_performed === false ? 'Tindakan tidak dialami' : 'Lihat cerita'}</div></div>
-            <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500 mb-1">Menurut klaim</div><div className="font-semibold">{claimSummary(claim!)}</div></div>
-            <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500 mb-1">Selisih (dihitung kode)</div><div className="font-semibold font-mono">{diffText(result) || 'Tidak dihitung'}</div></div>
-          </div>
-          <p className="text-sm text-slate-700">{result.reconciliation.finding}</p>
-          {result.alternative_explanations.length > 0 && (
-            <div className="rounded-lg border border-slate-200 p-3">
-              <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-1"><HelpCircle className="w-3.5 h-3.5" />Kemungkinan penjelasan lain (harus dicek ke faskes)</div>
-              <ul className="list-disc pl-5 text-sm text-slate-700 space-y-0.5">{result.alternative_explanations.map((a, i) => <li key={i}>{a}</li>)}</ul>
-            </div>
-          )}
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button type="button" onClick={onGoToQueue} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold hover:bg-slate-50">Lihat di Antrean Verifikasi</button>
-            <button type="button" onClick={() => onOpenCaseDetail(result)} className="px-4 py-2 rounded-lg bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800 flex items-center gap-1.5">Buka detail <ArrowRight className="w-3.5 h-3.5" /></button>
-          </div>
+          <p className="mt-4 pt-3 border-t border-dashed border-slate-300 text-xs text-slate-500">Ingin melihat kelanjutannya? Gunakan <b>Ganti peran</b> di bagian atas untuk masuk sebagai Petugas atau Faskes.</p>
         </section>
       )}
     </div>

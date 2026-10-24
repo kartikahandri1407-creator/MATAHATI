@@ -9,7 +9,7 @@ import { PRIORITY_LABEL, TRIAGE_LABEL, sortQueue } from '../data/workflow';
 import { STAGES, STAGE_HINT, STAGE_LABEL, Stage, caseStage, stageGroup } from '../data/stage';
 import { PageHeader } from './PageHeader';
 import { fmtTanggal } from '../data/format';
-import { Building2, ChevronRight, Download, FileSpreadsheet, Search, Trash2 } from 'lucide-react';
+import { Building2, ChevronRight, Download, FileSpreadsheet, Search } from 'lucide-react';
 
 interface DashboardProps {
   cases: CaseRecord[];
@@ -17,7 +17,6 @@ interface DashboardProps {
   facilities: Facility[];
   scores?: Record<string, PriorityScore>;
   onOpenCaseDetail: (caseRecord: CaseRecord) => void;
-  onDeleteCase?: (caseId: string) => void;
   onExportJSON?: () => void;
 }
 
@@ -46,11 +45,10 @@ const Kpi: React.FC<{ icon: React.ReactNode; label: string; value: number; hint:
   </button>
 );
 
-export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, scores, onOpenCaseDetail, onDeleteCase, onExportJSON }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, scores, onOpenCaseDetail, onExportJSON }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stageF, setStageF] = useState<'ALL' | Stage>('ALL');
   const [filterRiskType, setFilterRiskType] = useState('ALL');
-  const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
   const outcomes = useMemo(() => summarizeOutcomes(cases), [cases]);
 
   const verifyOpen = useMemo(() => cases.filter(c => c.status === 'RISK_SIGNAL' && stageGroup(caseStage(c)) !== 'DONE').length, [cases]);
@@ -190,10 +188,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
                       </div>
                       <ChevronRight className="hidden md:block w-4 h-4 text-slate-300 group-hover:text-slate-500" />
                     </button>
-                    {onDeleteCase && (
-                      <button type="button" onClick={() => setCaseToDelete(c.case_id)} aria-label={`Hapus ${c.case_id}`} title="Hapus kasus"
-                        className="px-3 text-slate-300 hover:text-rose-600 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -202,20 +196,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
         </>
       )}
 
-      {caseToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-4">
-            <div>
-              <h4 className="font-bold text-slate-900">Hapus kasus ini?</h4>
-              <p className="text-sm text-slate-600 mt-1">Kasus <strong className="font-mono text-slate-800">{caseToDelete}</strong> akan dihapus dari antrean.</p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setCaseToDelete(null)} className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Batal</button>
-              <button type="button" onClick={() => { if (onDeleteCase) onDeleteCase(caseToDelete); setCaseToDelete(null); }} className="px-3.5 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white">Hapus</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

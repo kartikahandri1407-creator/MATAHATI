@@ -124,6 +124,50 @@ export const AboutModal: React.FC = () => (
       </div>
     </section>
 
+
+    <section className="card p-6 space-y-5">
+      <div>
+        <div className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Dari prototipe ke penerapan</div>
+        <h3 className="text-xl font-extrabold text-slate-900 mt-1">Bagaimana ini bisa dipakai BPJS Kesehatan</h3>
+      </div>
+      <div className="grid md:grid-cols-3 gap-4 text-sm text-slate-700 leading-relaxed">
+        <div className="rounded-xl bg-slate-50 p-4 space-y-1"><b className="text-slate-900">1. Pilot terbatas</b><p>Satu wilayah kerja dan beberapa faskes. Suara peserta dikumpulkan lewat tautan atau kader pendamping, dicocokkan dengan klaim yang sudah ada.</p></div>
+        <div className="rounded-xl bg-slate-50 p-4 space-y-1"><b className="text-slate-900">2. Terhubung ke sistem</b><p>Masuk lewat login peserta JKN, data klaim dibaca dari sistem internal, dan lapisan AI diganti ke layanan AI internal bila diwajibkan.</p></div>
+        <div className="rounded-xl bg-slate-50 p-4 space-y-1"><b className="text-slate-900">3. Perluasan bertahap</b><p>Wilayah dan modus ditambah setelah hasil pilot dinilai petugas, bukan sekaligus.</p></div>
+      </div>
+      <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-700 leading-relaxed">
+        <div>
+          <b className="text-slate-900">Ukuran keberhasilan pilot</b>
+          <ul className="list-disc pl-5 mt-1 space-y-1"><li>Berapa persen laporan yang diperiksa petugas ternyata layak ditindaklanjuti.</li><li>Waktu dari laporan masuk sampai petugas memutuskan.</li><li>Berapa banyak peserta yang menjawab dibanding yang diajak.</li><li>Kesalahan AI yang ditemukan petugas (tercatat di Uji Kualitas AI).</li></ul>
+        </div>
+        <div>
+          <b className="text-slate-900">Risiko dan pencegahannya</b>
+          <ul className="list-disc pl-5 mt-1 space-y-1"><li>Laporan keliru atau iseng: satu pola baru dianggap kuat bila banyak pelapor berbeda.</li><li>Faskes merasa dituduh: bahasa netral, identitas pelapor tidak dibagikan.</li><li>Kebocoran data: nama dan nomor disamarkan sebelum diproses AI.</li><li>AI salah baca: angka dihitung program, keputusan di tangan petugas.</li></ul>
+        </div>
+      </div>
+      <p className="text-xs text-slate-500">Angka target pilot belum ditetapkan di prototipe ini. Perlu disepakati bersama BPJS Kesehatan.</p>
+    </section>
+
+
+    <section className="card p-6 space-y-4">
+      <div>
+        <div className="text-xs font-bold uppercase tracking-[.18em] text-emerald-700">Agar peserta mau ikut</div>
+        <h3 className="text-xl font-extrabold text-slate-900 mt-1">Partisipasi adalah tantangan terbesar, jadi dirancang sejak awal</h3>
+      </div>
+      <p className="text-sm text-slate-700 leading-relaxed">Peserta yang tidak membayar dan merasa puas hampir tidak punya alasan untuk repot. Karena itu MATA HATI tidak meminta semua orang melapor. Cukup sampel kecil per faskes, sebab yang dicari adalah pola, bukan sensus.</p>
+      <div className="grid md:grid-cols-2 gap-3 text-sm text-slate-700 leading-relaxed">
+        {[
+          ['Satu ketukan, bukan pengaduan', 'Satu pertanyaan tentang satu layanan, sekitar 30 detik, tanpa mengetik. Cerita dan foto boleh dilewati.'],
+          ['Di waktu dan tempat yang tepat', 'Pada penerapan, ajakan muncul beberapa hari setelah layanan lewat kanal yang sudah dipakai peserta, bukan aplikasi baru.'],
+          ['Hanya yang relevan', 'Klaim berisiko saja yang ditanyakan, supaya ajakan jarang dan terasa penting.'],
+          ['Umpan balik yang terasa', 'Peserta melihat tahap laporannya di Laporan Saya, dan tahu bahwa suaranya diproses.'],
+          ['Pendamping untuk yang sulit digital', 'Kader atau keluarga bisa menjawab mewakili peserta.'],
+          ['Tanpa hadiah uang', 'Hadiah materi mengundang laporan asal-asalan dan merusak logika pola. Cukup apresiasi non-materi.'],
+        ].map(([t, d]) => <div key={t} className="rounded-xl bg-slate-50 p-4"><b className="text-slate-900">{t}</b><p className="mt-1">{d}</p></div>)}
+      </div>
+      <p className="text-xs text-slate-500">Tingkat respons yang sebenarnya belum terbukti. Itu yang akan diukur lebih dulu pada pilot.</p>
+    </section>
+
     <div className="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-sm text-amber-950 leading-relaxed">
       <strong>Prototipe dengan data fiktif.</strong> Klaim dan cerita dibuat mengikuti sebaran Data Sampel BPJS Kesehatan 2024 (ringkasan agregat). Nama faskes dan semua laporan adalah rekaan. Tidak ada data peserta JKN yang nyata, dan ini bukan produk resmi BPJS Kesehatan. Tim PUAN KARSA, Healthkathon BPJS Kesehatan 2026.
     </div>

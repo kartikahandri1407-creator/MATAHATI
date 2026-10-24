@@ -9,6 +9,7 @@
  * 5. Menggabungkan reliabilitas (diambil yang lebih rendah) dan menjalankan validator.
  */
 
+import { maskPII } from '../services/piiMask';
 import { GoogleGenAI } from '@google/genai';
 import { MATA_HATI_SYSTEM_INSTRUCTION } from '../ai/systemInstruction';
 import { SCENARIO_KNOWLEDGE } from '../ai/scenarioKnowledge';
@@ -194,7 +195,7 @@ export async function runAnalysis(input: AnalyzeInput): Promise<CoreResponse> {
 
   const storyRaw = body?.storyText;
   if (typeof storyRaw !== 'string') return { status: 400, json: { error: 'Cerita peserta (storyText) wajib berupa teks.' } };
-  const story = neutralizeStory(storyRaw);
+  const story = maskPII(neutralizeStory(storyRaw), { knownNames: [body?.claim?.patient_name] }).text; // lapisan kedua: identitas tidak pernah sampai ke model
   if (story.length < LIMITS.storyMin) return { status: 400, json: { error: `Cerita terlalu singkat (minimal ${LIMITS.storyMin} karakter).` } };
   if (story.length > LIMITS.storyMax) return { status: 400, json: { error: `Cerita terlalu panjang (maksimal ${LIMITS.storyMax} karakter).` } };
 

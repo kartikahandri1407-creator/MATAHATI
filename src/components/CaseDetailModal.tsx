@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Timeline } from './Timeline';
 import { caseTimeline } from '../data/stage';
-import { fmtWaktu } from '../data/format';
+import { fmtTanggal, fmtWaktu } from '../data/format';
+import { describeMasked } from '../services/piiMask';
 import { CaseRecord, VerificationStatus, FacilityPattern } from '../types/matahati';
 import { PriorityScore } from '../services/priorityScore';
 import { PriorityBreakdown } from './PriorityBreakdown';
@@ -123,7 +124,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
         <div className="bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2 text-xs text-slate-500 mb-0.5">
-              <span>Lembar Pemeriksaan Pengaduan</span>
+              <span>Lembar Pemeriksaan</span>
               <span>·</span>
               <span className="font-mono font-bold text-slate-900">{caseRecord.case_id}</span>
               <span>·</span>
@@ -205,6 +206,9 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 <HighlightedStory story={caseRecord.patient_statement} quotes={caseRecord.evidence_quotes} evidence={caseRecord.patient_evidence} />
               )}
 
+              {caseRecord.privacy_masked && caseRecord.privacy_masked.length > 0 && (
+                <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">Identitas pada cerita disamarkan sebelum dianalisis: {describeMasked(caseRecord.privacy_masked as any)}.</p>
+              )}
               <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                 {caseRecord.patient_evidence.received_quantity !== undefined && caseRecord.patient_evidence.received_quantity !== null && (
                   <div>
@@ -276,7 +280,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
               <div className="space-y-1.5 pt-1">
                 <div>
                   <span className="text-slate-500 block text-[11px]">Tanggal Kunjungan:</span>
-                  <span className="font-medium text-slate-800">{caseRecord.service_date}</span>
+                  <span className="font-medium text-slate-800">{fmtTanggal(caseRecord.service_date)}</span>
                 </div>
                 {caseRecord.claim_evidence.medication && (
                   <div>

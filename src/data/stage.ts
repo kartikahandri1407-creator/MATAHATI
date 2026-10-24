@@ -59,6 +59,7 @@ export interface TimelineEvent { at: string; actor: string; title: string; detai
 export type Audience = 'peserta' | 'petugas';
 
 const ACTION_TITLE: Record<string, { peserta?: string; petugas: string; tone: TimelineEvent['tone'] }> = {
+  FOLLOW_UP_ANSWERED: { peserta: 'Anda menambah informasi', petugas: 'Pelapor menambah informasi atas pertanyaan lanjutan', tone: 'info' },
   SUBMITTED: { peserta: 'Laporan Anda diterima', petugas: 'Laporan masuk dan dibandingkan dengan klaim', tone: 'info' },
   TRIAGE_COMPLETED: { peserta: 'Laporan Anda diterima', petugas: 'Laporan masuk dan dibandingkan dengan klaim', tone: 'info' },
   STATUS_NEW: { petugas: 'Dikembalikan ke antrean baru', tone: 'info' },
@@ -70,6 +71,8 @@ const ACTION_TITLE: Record<string, { peserta?: string; petugas: string; tone: Ti
   STATUS_CLOSED_NO_ACTION: { peserta: 'Pemeriksaan selesai', petugas: 'Pemeriksaan ditutup', tone: 'ok' },
   DATA_KASUS_DIUBAH: { petugas: 'Data kasus diperbarui petugas', tone: 'info' }
 };
+
+export const actionLabel = (a: string): string => ACTION_TITLE[a]?.petugas || a;
 
 const needsAction = (log: AuditLogEntry[], pred: (a: string) => boolean) => log.some(l => pred(l.action));
 
@@ -118,3 +121,9 @@ export function pesertaProgress(c: CaseRecord): { step: number; headline: string
     case 'DITUTUP': return { step: 3, done: true, headline: 'Selesai', message: 'Pemeriksaan selesai. Terima kasih sudah membantu menjaga layanan JKN.', tone: 'ok' };
   }
 }
+
+/**
+ * Rincian perbandingan (catatan klaim vs jawaban) baru boleh dilihat peserta setelah petugas menyentuh kasusnya.
+ * Sebelum itu hasilnya hanya perkiraan otomatis dan belum diperiksa manusia.
+ */
+export const pesertaMaySeeComparison = (c: Parameters<typeof caseStage>[0]): boolean => caseStage(c) !== 'BARU';

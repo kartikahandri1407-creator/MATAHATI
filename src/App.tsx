@@ -17,6 +17,7 @@ import { scoreCase } from './services/priorityScore';
 import { nextCaseId, useCollection } from './data/store';
 import { FaskesPortal } from './components/FaskesPortal';
 import { MyReports } from './components/MyReports';
+import { AdminOverview } from './components/AdminOverview';
 import { SimulasiSkala } from './components/SimulasiSkala';
 import { Toast, Toasts } from './components/Toasts';
 import { caseGroup } from './data/stage';
@@ -90,7 +91,7 @@ export default function App() {
         largeText={largeText} setLargeText={setLargeText}
         backend={cases.mode} geminiConfigured={geminiConfigured}
       />
-      <div className="md:pl-64 sticky top-14 md:top-0 z-30"><RoleBanner role={role} onChange={switchRole} /></div>
+      <div className="md:pl-64 sticky top-14 md:top-0 z-30"><RoleBanner role={role} onChange={switchRole} onHome={() => setActiveTabRaw('home')} /></div>
       {dbError && <div className="bg-rose-50 border-b border-rose-200 text-rose-800 text-sm px-4 py-2" role="alert">{dbError}</div>}
 
       <main className="flex-1 pb-16 md:pl-64" key={activeTab}>
@@ -107,10 +108,9 @@ export default function App() {
               cases.add(c);
               notify('Laporan diterima. Pantau di Laporan Saya.');
             }}
-            onOpenCaseDetail={open}
+            onCaseUpdated={c => cases.update(c)}
             onGoToQueue={() => setActiveTab('queue')}
             onGoToMine={() => setActiveTab('mine')}
-            onGoToDataMaster={() => setActiveTab('master')}
           />
         ) : activeTab === 'mine' ? (
           <MyReports cases={cases.items} claims={claims.items} onNew={() => setActiveTab('report')} />
@@ -118,7 +118,6 @@ export default function App() {
           <Dashboard
             cases={cases.items} facilityPatterns={facilityPatterns} facilities={facilities.items} scores={scores}
             onOpenCaseDetail={open}
-            onDeleteCase={id => { cases.remove(id); if (selectedCaseId === id) setSelectedCaseId(null); notify(`Kasus ${id} dihapus`); }}
             onExportJSON={handleExportJSON}
           />
         ) : activeTab === 'faskes' ? (
@@ -139,6 +138,8 @@ export default function App() {
             }}
             onClear={() => { cases.clear(); notify('Antrean dikosongkan'); }}
             onReset={() => { cases.reset(); notify('Data contoh dikembalikan'); }} />
+        ) : activeTab === 'overview' ? (
+          <AdminOverview cases={cases.items} claims={claims.items} facilities={facilities.items} backend={cases.mode} geminiConfigured={geminiConfigured} isDemoMode={isDemoMode} go={setActiveTab} />
         ) : activeTab === 'master' ? (
           <DataMaster facilities={facilities} claims={claims} />
         ) : activeTab === 'eval' ? (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Building2, ClipboardCheck, Database, FilePlus2, Home, Info, ListChecks, Type, Wrench } from 'lucide-react';
+import { ArrowLeft, BarChart3, Building2, ClipboardCheck, Database, FilePlus2, Home, Info, LayoutDashboard, ListChecks, Type, Wrench } from 'lucide-react';
 import { ROLES, Role, TAB_LABEL, TabId } from '../data/roles';
 
 export type { TabId } from '../data/roles';
@@ -19,7 +19,7 @@ interface HeaderProps {
 }
 
 type Icon = React.FC<{ className?: string }>;
-const ICON: Record<TabId, Icon> = { home: Home, report: FilePlus2, mine: ListChecks, queue: ClipboardCheck, faskes: Building2, master: Database, eval: BarChart3, tools: Wrench, about: Info };
+const ICON: Record<TabId, Icon> = { home: Home, overview: LayoutDashboard, report: FilePlus2, mine: ListChecks, queue: ClipboardCheck, faskes: Building2, master: Database, eval: BarChart3, tools: Wrench, about: Info };
 
 export const Logo: React.FC<{ className?: string }> = ({ className = 'w-9 h-9' }) => (
   <span className={`${className} grid place-items-center rounded-lg bg-tinta text-white font-extrabold text-xs`} aria-hidden="true">MH</span>
@@ -41,6 +41,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, role, i
           <div className="text-[10px] uppercase tracking-widest text-white/45">Anda masuk sebagai</div>
           <div className="mt-1 flex items-center gap-2 font-bold text-sm"><span className={`w-2 h-2 rounded-full ${def.dot}`} />{def.label}</div>
         </div>
+        <div className="px-3 mb-2">
+          <button type="button" onClick={() => setActiveTab('home')} className="w-full px-3 py-2 rounded-lg text-[13px] font-semibold flex items-center gap-2 text-white/70 hover:text-white hover:bg-white/10 border border-white/10"><ArrowLeft className="w-4 h-4" />Kembali ke beranda</button>
+        </div>
         <nav className="flex-1 overflow-y-auto px-3 space-y-1" aria-label="Menu utama">
           {tabs.map(id => { const Ic = ICON[id]; return (
             <button key={id} type="button" onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined}
@@ -60,7 +63,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, role, i
         </div>
       </aside>
       <header className="md:hidden sticky top-0 z-40 side px-4 h-14 flex items-center justify-between">
-        <button type="button" onClick={() => setActiveTab('home')} className="text-lg font-extrabold tracking-tight" aria-label="MATA HATI, ke beranda">MATA<span className="text-emerald-400"> HATI</span></button>
+        <div className="flex items-center gap-1.5">
+          <button type="button" onClick={() => setActiveTab('home')} className="p-2 -ml-2 rounded-lg text-white/80 hover:bg-white/10" aria-label="Kembali ke beranda" title="Kembali ke beranda"><ArrowLeft className="w-5 h-5" /></button>
+          <button type="button" onClick={() => setActiveTab('home')} className="text-lg font-extrabold tracking-tight" aria-label="MATA HATI, ke beranda">MATA<span className="text-emerald-400"> HATI</span></button>
+        </div>
         <button type="button" onClick={() => setLargeText(!largeText)} aria-pressed={largeText} className="p-2 rounded-lg border border-white/25" title="Perbesar teks"><Type className="w-4 h-4" /></button>
       </header>
 

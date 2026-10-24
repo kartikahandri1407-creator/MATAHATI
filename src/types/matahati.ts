@@ -123,6 +123,8 @@ export interface CaseRecord extends TriageResult {
   input_by: 'PESERTA_MANDIRI' | 'KADER_PENDAMPING';
   input_type: 'TEXT' | 'VOICE_TRANSCRIPT';
   patient_statement: string;
+  /** Bagian cerita yang disamarkan sebelum dianalisis (jenis dan jumlahnya saja, tanpa isinya). */
+  privacy_masked?: { kind: string; label: string; count: number }[];
   visual_evidence?: {
     uploaded: boolean;
     file_name: string;

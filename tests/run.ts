@@ -26,6 +26,7 @@ import { verifyQuotes, segmentStory, deriveQuotes } from '../src/services/eviden
 import { CSV_TEMPLATE, importClaimsCsv, parseCsv } from '../src/data/csvImport';
 import { buildFairnessSets, runFairnessSet, summarizeFairness } from '../src/services/fairness';
 import { analyzeLocally } from '../src/services/localEngine';
+import { maskPII, describeMasked } from '../src/services/piiMask';
 
 let passed = 0;
 let failed = 0;
@@ -456,6 +457,24 @@ async function main() {
     check('jejak peserta tidak memuat catatan internal petugas', cs.every(c => caseTimeline(c, 'peserta').every(e => !/skor|indeks|prioritas|faskes menjawab/i.test(e.title + (e.detail || '')))));
     check('jam demo tidak melewati sehari setelah kejadian terbaru', demoNow(cs, Date.parse('2030-01-01')) < Date.parse('2027-01-01'));
     check('jam demo sama dengan jam nyata bila ada kejadian hari ini', demoNow([{ ...cs[0], created_at: new Date().toISOString(), audit_log: [] }]) <= Date.now());
+  }
+
+  console.log('Penyamaran identitas');
+  {
+    const raw = 'Nama saya Budi Santoso, kartu 0001234567890, NIK 3201 2345 6789 0001, telp 0812-3456-7890, surel budi@mail.com. Saya diberi resep 5 obat tapi hanya menerima 2 obat pada 12 September 2026 (Rp 485.000).';
+    const m = maskPII(raw, { knownNames: ['Budi Santoso'] });
+    check('nama, kartu, NIK, telepon, dan surel diganti penanda', !/Budi|0001234567890|3201|0812|budi@/.test(m.text) && m.total === 5, m);
+    check('angka layanan, tanggal, dan nilai rupiah tidak ikut berubah', m.text.includes('5 obat') && m.text.includes('2 obat') && m.text.includes('12 September 2026') && m.text.includes('Rp 485.000'), m.text);
+    check('nomor SEP tidak dianggap nomor kartu', maskPII('SEP-2026-0912-00192 jumlah 5 obat').total === 0);
+    check('sapaan dan gelar diikuti nama disamarkan', maskPII('Dilayani dr. Andi Wijaya dan Ibu Siti.').text === 'Dilayani dr. [NAMA] dan Ibu [NAMA].');
+    check('nama dari data klaim disamarkan walau tanpa penanda', maskPII('saya Budi menerima dua obat', { knownNames: ['Budi Santoso'] }).text === 'saya [NAMA] menerima dua obat');
+    check('nama huruf kecil setelah penanda disamarkan, kata biasa tidak', maskPII('nama saya budi hartono dan saya lupa').text === 'nama saya [NAMA] dan saya lupa' && maskPII('nama saya lupa').total === 0);
+    check('tanggal lahir disamarkan', maskPII('Lahir 12/03/1980 dan dirawat 3 hari').text.startsWith('[TANGGAL LAHIR]') );
+    check('menjalankan dua kali tidak mengubah hasil', maskPII(m.text).text === m.text && maskPII(m.text).total === 0);
+    check('cerita tanpa identitas tidak berubah', maskPII('Resepnya 5 obat tapi di apotek hanya 2 obat.').text === 'Resepnya 5 obat tapi di apotek hanya 2 obat.');
+    check('ringkasan penyamaran terbaca manusia', describeMasked(m.found).includes('nomor telepon') && describeMasked([]) === '');
+    const r = await analyze({ storyText: 'Nama saya Budi Santoso, telp 081234567890. Saya diberi resep 5 obat tetapi di apotek hanya menerima 2 obat.', claim: { ...drugClaim, patient_name: 'Budi Santoso' } }, modelReply({}));
+    check('server: nama dan telepon di cerita tidak sampai ke model', !/Budi|Santoso|081234567890/.test(r.seenPrompt), r.seenPrompt.slice(0, 400));
   }
 
   console.log(`\n${passed} lulus, ${failed} gagal`);

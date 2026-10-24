@@ -1,5 +1,57 @@
 // FILE HASIL BUNDLE - jangan disunting. Sumber: server-src/vercel dan src/server. Regenerasi: npm run build:api
 
+// src/services/piiMask.ts
+var LABEL = {
+  EMAIL: "surel",
+  TELEPON: "nomor telepon",
+  NIK: "NIK",
+  KARTU: "nomor kartu",
+  NOMOR: "nomor identitas",
+  LAHIR: "tanggal lahir",
+  NAMA: "nama"
+};
+var TOKEN = {
+  EMAIL: "[SUREL]",
+  TELEPON: "[NOMOR TELEPON]",
+  NIK: "[NIK]",
+  KARTU: "[NOMOR KARTU]",
+  NOMOR: "[NOMOR]",
+  LAHIR: "[TANGGAL LAHIR]",
+  NAMA: "[NAMA]"
+};
+var BULAN = "(?:januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|jan|feb|mar|apr|jun|jul|agu|agt|sep|sept|okt|nov|des)";
+var NAME = "[A-Z][a-zA-Z'\u2019-]+(?:\\s+[A-Z][a-zA-Z'\u2019-]+){0,3}";
+var STOP = "dan|yang|tapi|tetapi|di|ke|dari|saya|lupa|agak|sudah|belum|tidak|pernah|pada|waktu|ketika|karena|untuk|dengan|adalah|itu|ini|berobat|dirawat|datang|menerima|membayar";
+var escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function maskPII(input, opts = {}) {
+  const counts = /* @__PURE__ */ new Map();
+  const bump = (k, n = 1) => counts.set(k, (counts.get(k) || 0) + n);
+  let text = String(input ?? "");
+  const sub = (kind, re, make) => {
+    text = text.replace(re, (...args) => {
+      const m = args.slice(0, -2);
+      bump(kind);
+      return make ? make(m) : TOKEN[kind];
+    });
+  };
+  sub("EMAIL", /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g);
+  sub("TELEPON", /(?<![\d\w-])(?:\+?62|0)[\s.-]?8(?:[\s.-]?\d){8,11}(?!\d)/g);
+  sub("NIK", /(?<![\w-])(?:\d[\s.-]?){15}\d(?!\d)/g);
+  sub("KARTU", /(?<![\w-])(?:\d[\s.-]?){12}\d(?!\d)/g);
+  sub("NOMOR", /(?<![\d\w-])\d{10,}(?![\d\w])/g);
+  sub("LAHIR", new RegExp(`\\b(?:tanggal lahir|tgl\\.? lahir|lahir(?: pada| tanggal| tgl\\.?)?)\\s*:?\\s*(?:\\d{1,2}[\\/. -]\\d{1,2}[\\/. -]\\d{2,4}|\\d{1,2}\\s+${BULAN}\\s+\\d{4})`, "gi"));
+  sub("NAMA", new RegExp(`\\b([Nn]ama(?:\\s+(?:saya|pasien|lengkap|ibu|bapak|anak|suami|istri))?|[Aa]tas\\s+nama|a\\.n\\.?|[Bb]ernama)(\\s*:?\\s+)(${NAME})`, "g"), (m) => `${m[1]}${m[2]}${TOKEN.NAMA}`);
+  sub("NAMA", new RegExp(`\\b((?:[Nn]ama\\s+saya|[Aa]tas\\s+nama|[Bb]ernama)\\s*:?\\s+)(?!(?:${STOP})\\b)([a-z][a-z'\u2019-]{2,}(?:\\s+(?!(?:${STOP})\\b)[a-z][a-z'\u2019-]{2,}){0,1})`, "g"), (m) => `${m[1]}${TOKEN.NAMA}`);
+  sub("NAMA", new RegExp(`\\b(Bapak|Ibu|Pak|Bu|Bpk|Sdr|Sdri|Tn|Ny|Nn|dr|drg|Prof)(\\.?\\s+)(${NAME})`, "g"), (m) => `${m[1]}${m[2]}${TOKEN.NAMA}`);
+  const known = (opts.knownNames || []).map((n) => String(n || "").trim()).filter((n) => n.length >= 3);
+  for (const full of known) {
+    sub("NAMA", new RegExp(`(?<![\\w])${escapeRe(full)}(?![\\w])`, "gi"));
+    for (const part of full.split(/\s+/).filter((p) => p.length >= 4)) sub("NAMA", new RegExp(`(?<![\\w\\[])${escapeRe(part)}(?![\\w\\]])`, "gi"));
+  }
+  const found = [...counts.entries()].map(([kind, count]) => ({ kind, label: LABEL[kind], count }));
+  return { text, found, total: found.reduce((a, f) => a + f.count, 0) };
+}
+
 // src/server/analyzeCore.ts
 import { GoogleGenAI } from "@google/genai";
 
@@ -619,7 +671,7 @@ async function runAnalysis(input) {
   }
   const storyRaw = body?.storyText;
   if (typeof storyRaw !== "string") return { status: 400, json: { error: "Cerita peserta (storyText) wajib berupa teks." } };
-  const story = neutralizeStory(storyRaw);
+  const story = maskPII(neutralizeStory(storyRaw), { knownNames: [body?.claim?.patient_name] }).text;
   if (story.length < LIMITS.storyMin) return { status: 400, json: { error: `Cerita terlalu singkat (minimal ${LIMITS.storyMin} karakter).` } };
   if (story.length > LIMITS.storyMax) return { status: 400, json: { error: `Cerita terlalu panjang (maksimal ${LIMITS.storyMax} karakter).` } };
   const claim = cleanClaim(body?.claim);

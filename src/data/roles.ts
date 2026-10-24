@@ -4,7 +4,7 @@
  * dan setiap peran HANYA melihat menu miliknya. Pada produksi, peran ditentukan oleh akun (JKN Mobile
  * untuk peserta, akun pegawai untuk petugas, akun faskes untuk faskes).
  */
-export type TabId = 'home' | 'report' | 'mine' | 'queue' | 'faskes' | 'master' | 'eval' | 'tools' | 'about';
+export type TabId = 'home' | 'overview' | 'report' | 'mine' | 'queue' | 'faskes' | 'master' | 'eval' | 'tools' | 'about';
 export type Role = 'peserta' | 'petugas' | 'faskes' | 'pengelola';
 
 export interface RoleDef {
@@ -22,6 +22,7 @@ export interface RoleDef {
 
 export const TAB_LABEL: Record<TabId, { label: string; short: string; what: string }> = {
   home: { label: 'Beranda', short: 'Beranda', what: '' },
+  overview: { label: 'Ringkasan Sistem', short: 'Ringkasan', what: 'Gambaran seluruh sistem: data, partisipasi peserta, posisi laporan, dan status AI.' },
   report: { label: 'Cek Layanan', short: 'Cek', what: 'Lihat layanan yang tercatat atas nama Anda, lalu jawab satu pertanyaan.' },
   mine: { label: 'Laporan Saya', short: 'Laporan', what: 'Pantau perkembangan setiap laporan yang sudah Anda kirim.' },
   queue: { label: 'Antrean Verifikasi', short: 'Antrean', what: 'Laporan yang sudah dibandingkan dengan klaim, diurutkan dari yang paling perlu diperiksa.' },
@@ -52,9 +53,9 @@ export const ROLES: Record<Role, RoleDef> = {
     bar: 'bg-teal-700', chip: 'bg-teal-50 text-teal-900 border-teal-200', dot: 'bg-teal-500', ring: 'ring-teal-200'
   },
   pengelola: {
-    id: 'pengelola', label: 'Pengelola Sistem', short: 'Pengelola', home: 'master', tabs: ['master', 'eval', 'tools', 'about'],
+    id: 'pengelola', label: 'Pengelola Sistem', short: 'Pengelola', home: 'overview', tabs: ['overview', 'master', 'eval', 'tools', 'about'],
     oneLiner: 'Mengelola data klaim, memantau kualitas AI, dan menyiapkan peragaan.',
-    sees: ['Data klaim', 'Uji kualitas AI', 'Alat demo'], notSees: 'Laporan individual peserta.',
+    sees: ['Ringkasan sistem', 'Data klaim', 'Uji kualitas AI', 'Alat demo'], notSees: 'Laporan individual peserta.',
     bar: 'bg-violet-700', chip: 'bg-violet-50 text-violet-900 border-violet-200', dot: 'bg-violet-500', ring: 'ring-violet-200'
   }
 };

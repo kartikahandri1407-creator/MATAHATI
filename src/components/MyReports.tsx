@@ -1,7 +1,7 @@
 import React from 'react';
 import { CaseRecord, DummyClaim } from '../types/matahati';
-import { SCENARIO_LABEL } from '../data/claimUtils';
-import { PESERTA_STEPS, caseTimeline, pesertaProgress } from '../data/stage';
+import { SCENARIO_LABEL, answerText, claimSummary } from '../data/claimUtils';
+import { PESERTA_STEPS, caseTimeline, caseStage, pesertaMaySeeComparison, pesertaProgress } from '../data/stage';
 import { fmtTanggal } from '../data/format';
 import { PageHeader } from './PageHeader';
 import { Timeline } from './Timeline';
@@ -69,8 +69,22 @@ export const MyReports: React.FC<Props> = ({ cases, claims, onNew }) => {
                 <Stepper step={p.step} />
                 <p className="mt-4 text-sm text-slate-700 leading-relaxed">{p.message}</p>
                 <details className="mt-3 group">
-                  <summary className="cursor-pointer text-sm font-semibold text-emerald-800 select-none list-none flex items-center gap-1"><span className="group-open:rotate-90 transition-transform inline-block">›</span>Lihat jejak laporan</summary>
-                  <div className="mt-3 pl-1"><Timeline events={caseTimeline(c, 'peserta')} /></div>
+                  <summary className="cursor-pointer text-sm font-semibold text-emerald-800 select-none list-none flex items-center gap-1"><span className="group-open:rotate-90 transition-transform inline-block">›</span>Lihat rincian dan jejak laporan</summary>
+                  <div className="mt-3 space-y-4">
+                    {pesertaMaySeeComparison(c) && claim ? (
+                      <div>
+                        <div className="text-[11px] font-extrabold tracking-[.14em] uppercase text-slate-500">Perbandingan yang diperiksa petugas</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3"><div className="text-xs text-slate-500">Tercatat di klaim</div><div className="font-bold text-tinta mt-0.5">{claimSummary(claim)}</div></div>
+                          <div className="rounded-xl bg-slate-50 border border-slate-200 p-3"><div className="text-xs text-slate-500">Jawaban Anda</div><div className="font-bold text-tinta mt-0.5">{answerText(c.patient_evidence, claim.scenario)}</div></div>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">Perbedaan belum berarti ada yang salah. Bisa jadi salah catat atau stok kosong.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">Rincian perbandingan tersedia setelah petugas memeriksa laporan ini. Saat ini baru hasil perkiraan otomatis.</div>
+                    )}
+                    <div className="pl-1"><Timeline events={caseTimeline(c, 'peserta')} /></div>
+                  </div>
                 </details>
                 <div className="mt-3 pt-3 border-t border-dashed border-slate-300 flex items-center justify-between text-xs text-slate-500">
                   <span>Dikirim {fmtTanggal(c.created_at)}</span>

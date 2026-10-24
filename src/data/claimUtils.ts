@@ -1,4 +1,4 @@
-import { DummyClaim, RiskType } from '../types/matahati';
+import { DummyClaim, PatientEvidence, RiskType } from '../types/matahati';
 
 export type Scenario = DummyClaim['scenario'];
 
@@ -74,4 +74,15 @@ export async function compressImage(file: File, maxSide = 1280, quality = 0.7): 
   canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
   canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL('image/jpeg', quality);
+}
+
+/** Jawaban peserta dalam kalimat singkat, sesuai jenis layanan. Dipakai di halaman peserta. */
+export function answerText(e: PatientEvidence, scenario: Scenario): string {
+  switch (scenario) {
+    case 'OBAT': return e.received_quantity != null ? `${e.received_quantity} item diterima` : 'tidak ingat';
+    case 'TINDAKAN': return e.stated_procedure_performed === true ? 'tindakan dilakukan' : e.stated_procedure_performed === false ? 'tindakan tidak dilakukan' : 'belum jelas';
+    case 'LOS': return e.length_of_stay_days != null ? `dirawat ${e.length_of_stay_days} hari` : 'belum jelas';
+    case 'KUNJUNGAN_FIKTIF': return e.actual_visits_count != null ? `${e.actual_visits_count} kunjungan` : 'belum jelas';
+    default: return 'sesuai cerita Anda';
+  }
 }

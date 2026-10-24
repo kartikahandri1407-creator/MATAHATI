@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, Check } from 'lucide-react';
+import { ArrowLeftRight, Check, Home } from 'lucide-react';
 import { ROLES, ROLE_ORDER, Role } from '../data/roles';
 
 /** Penanda tetap "Anda masuk sebagai ..." dengan pengganti peran. Tampil di setiap halaman. */
-export const RoleBanner: React.FC<{ role: Role; onChange: (r: Role) => void }> = ({ role, onChange }) => {
+export const RoleBanner: React.FC<{ role: Role; onChange: (r: Role) => void; onHome: () => void }> = ({ role, onChange, onHome }) => {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const def = ROLES[role];
@@ -19,7 +19,7 @@ export const RoleBanner: React.FC<{ role: Role; onChange: (r: Role) => void }> =
     <div className="relative z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur">
       <div className={`h-1 ${def.bar}`} aria-hidden="true" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3" ref={box}>
-        <div className="min-w-0 flex items-center gap-3">
+        <div className="min-w-0 flex items-center gap-2.5 sm:gap-3">
           <span className={`shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${def.chip}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${def.dot}`} />Masuk sebagai <span className="sm:hidden">{def.short}</span><span className="hidden sm:inline">{def.label}</span>
           </span>
@@ -47,6 +47,9 @@ export const RoleBanner: React.FC<{ role: Role; onChange: (r: Role) => void }> =
                     {r === role && <Check className="w-4 h-4 text-emerald-700 mt-0.5" />}
                   </button>);
               })}
+              <div className="border-t border-slate-100 mt-1 pt-1">
+                <button type="button" role="menuitem" onClick={() => { setOpen(false); onHome(); }} className="w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-3 hover:bg-slate-50 text-sm font-semibold text-slate-700"><Home className="w-4 h-4 text-slate-500" />Kembali ke beranda</button>
+              </div>
             </div>
           )}
         </div>
