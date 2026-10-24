@@ -81,9 +81,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
   const tag = (k: string) => (doneSet.has(k) ? ' ✓ sudah dijawab' : '');
   const claim = useMemo(() => claims.find(c => c.claim_key === claimKey) || null, [claims, claimKey]);
   const grouped = useMemo(() => {
-    const core = claims.filter(c => CORE_SCENARIOS.includes(c.scenario));
+    // Layanan contoh yang dirapikan tampil lebih dulu. Data simulasi skala (SEP-SIM) dipisah agar tidak mengacaukan alur peserta.
+    const coreAll = claims.filter(c => CORE_SCENARIOS.includes(c.scenario));
+    const isSim = (c: DummyClaim) => /^SEP-SIM/i.test(c.sep_number || '');
+    const curated = coreAll.filter(c => !isSim(c));
+    const core = curated.length ? curated : coreAll;
+    const sim = curated.length ? coreAll.filter(isSim) : [];
     const rest = claims.filter(c => !CORE_SCENARIOS.includes(c.scenario));
-    return { core, rest };
+    return { core, sim, rest };
   }, [claims]);
 
   useEffect(() => { if (claimKey && !claims.some(c => c.claim_key === claimKey)) setClaimKey(''); }, [claims, claimKey]);
@@ -222,6 +227,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
             <select id="layanan" aria-label="Pilih klaim" value={claimKey} onChange={e => { setClaimKey(e.target.value); setResult(null); setAns({ n: '', choice: '' }); }} className="w-full rounded-xl border-2 border-slate-300 bg-white p-3.5 text-base focus:border-emerald-700">
               <option value="">Pilih layanan lain</option>
               {grouped.core.length > 0 && <optgroup label="Obat, tindakan, lama rawat">{grouped.core.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {fmtTanggal(c.service_date)} · {SCENARIO_LABEL[c.scenario]}{tag(c.claim_key)}</option>)}</optgroup>}
+              {grouped.sim.length > 0 && <optgroup label={`Data simulasi skala (${grouped.sim.length} layanan, untuk uji volume)`}>{grouped.sim.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {fmtTanggal(c.service_date)} · {SCENARIO_LABEL[c.scenario]}{tag(c.claim_key)}</option>)}</optgroup>}
               {grouped.rest.length > 0 && <optgroup label="Jenis lain (masih eksperimen)">{grouped.rest.map(c => <option key={c.claim_key} value={c.claim_key}>{c.facility_name} · {fmtTanggal(c.service_date)} · {SCENARIO_LABEL[c.scenario]}</option>)}</optgroup>}
             </select>
           )}
