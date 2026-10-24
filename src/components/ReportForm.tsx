@@ -342,7 +342,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ claims, answeredKeys = [
           <p className="mt-4 text-sm text-slate-500">Nomor laporan <span className="font-mono font-semibold text-slate-800">{result.case_id}</span>. Laporan ini dipakai untuk memeriksa pelayanan, bukan untuk menghukum siapa pun.</p>
           <div className="flex flex-wrap gap-2 pt-4">
             <button type="button" onClick={onGoToMine} className="px-4 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold">Pantau laporan saya</button>
-            <button type="button" onClick={() => { const next = grouped.core.find(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)); reset(); if (next) setClaimKey(next.claim_key); }} className="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50">{grouped.core.some(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)) ? 'Cek layanan lain' : 'Selesai'}</button>
+            <button type="button" onClick={() => { const next = grouped.core.find(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)); reset(); if (next) setClaimKey(next.claim_key); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { /* abaikan */ } }} className="px-4 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50">{grouped.core.some(c => c.claim_key !== claimKey && !doneSet.has(c.claim_key)) ? 'Cek layanan lain' : 'Selesai'}</button>
           </div>
           <p className="mt-4 pt-3 border-t border-dashed border-slate-300 text-xs text-slate-500">Ingin melihat kelanjutannya? Gunakan <b>Ganti peran</b> di bagian atas untuk masuk sebagai Petugas atau Faskes.</p>
         </section>
