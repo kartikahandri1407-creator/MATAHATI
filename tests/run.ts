@@ -477,6 +477,19 @@ async function main() {
     check('server: nama dan telepon di cerita tidak sampai ke model', !/Budi|Santoso|081234567890/.test(r.seenPrompt), r.seenPrompt.slice(0, 400));
   }
 
+  console.log('Mesin lokal tidak menebak angka');
+  {
+    const byScn = (k: string) => (demoClaimsJson as any[]).find(c => c.scenario === k);
+    const st = (k: string, story: string) => (analyzeLocally({ storyText: story, claim: byScn(k) } as any) as any).status;
+    check('obat: cerita tanpa angka menjadi "belum cukup", bukan selisih', st('OBAT', 'Saya berobat ke sana kemarin, agak lupa detailnya ya.') === 'INSUFFICIENT_EVIDENCE');
+    check('rawat: "tidak ingat berapa hari" menjadi "belum cukup"', st('LOS', 'Saya dirawat di rumah sakit itu, tetapi saya tidak ingat berapa hari.') === 'INSUFFICIENT_EVIDENCE');
+    check('biaya: "lupa soal bayaran" menjadi "belum cukup"', st('IUR_BIAYA', 'Saya lupa soal bayaran di klinik itu.') === 'INSUFFICIENT_EVIDENCE');
+    check('biaya: "tidak membayar apa pun" sesuai catatan', st('IUR_BIAYA', 'Di klinik itu saya tidak membayar apa pun.') === 'CONSISTENT');
+    check('tindakan: "tidak yakin" menjadi "belum cukup"', st('TINDAKAN', `Saya tidak yakin apakah saya menjalani ${byScn('TINDAKAN').procedure_name}.`) === 'INSUFFICIENT_EVIDENCE');
+    check('tindakan: "memang menjalani" sesuai catatan', st('TINDAKAN', `Di faskes itu saya memang menjalani ${byScn('TINDAKAN').procedure_name}.`) === 'CONSISTENT');
+    check('kunjungan: tidak ingat jumlah menjadi "belum cukup"', st('KUNJUNGAN_FIKTIF', 'Saya tidak ingat berapa kali saya datang.') === 'INSUFFICIENT_EVIDENCE');
+  }
+
   console.log(`\n${passed} lulus, ${failed} gagal`);
   process.exit(failed ? 1 : 0);
 }

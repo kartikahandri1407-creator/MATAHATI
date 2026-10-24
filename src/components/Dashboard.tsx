@@ -65,7 +65,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
 
   const top = [...facilityPatterns].sort((a, b) => b.signal_count - a.signal_count)[0];
   const topCases = top ? cases.filter(c => top.case_ids.includes(c.case_id)) : [];
-  const topValue = topCases.reduce((n, c) => n + (Number((c.claim_evidence as any)?.total_claim_amount) || 0), 0);
+  // Satu klaim dihitung sekali, walau dilaporkan lebih dari satu kali.
+  const topClaims = Array.from(new Map(topCases.map(c => [c.claim_key || c.case_id, c])).values());
+  const topValue = topClaims.reduce((n, c) => n + (Number((c.claim_evidence as any)?.total_claim_amount) || 0), 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -92,7 +94,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
                 <p className="text-sm text-white/70 max-w-md">Satu laporan lemah, tetapi beberapa pelapor yang tidak saling kenal menyebut hal serupa. Ini prioritas pemeriksaan, bukan kesimpulan kecurangan.</p>
               </div>
               <div className="relative z-10 rounded-2xl bg-white/10 border border-white/15 p-5 space-y-3">
-                <div><div className="text-xs text-white/70">Total nilai klaim terkait (bukan kerugian)</div><div className="text-3xl font-extrabold">Rp {topValue.toLocaleString('id-ID')}</div></div>
+                <div><div className="text-xs text-white/70">Total nilai klaim terkait (bukan kerugian)</div><div className="text-3xl font-extrabold">Rp {topValue.toLocaleString('id-ID')}</div><div className="text-xs text-white/70 mt-1">dari {topClaims.length} klaim, jumlah yang dibayarkan program</div></div>
                 <button type="button" onClick={() => topCases[0] && onOpenCaseDetail(topCases[0])} className="w-full h-11 rounded-xl bg-matahari text-tinta font-extrabold hover:brightness-95">Periksa kasus pertama</button>
               </div>
             </section>

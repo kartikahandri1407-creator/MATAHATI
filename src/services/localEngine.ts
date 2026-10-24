@@ -7,6 +7,7 @@ import { DummyClaim, RiskType, TriageResult } from '../types/matahati';
 import { computeDeterministicReconciliation } from './reconciliation';
 import { evaluateReliability } from './reliability';
 import { validateAndSanitizeTriageResult } from './validator';
+import { normalizeNumbers, extractMedicine, extractStayDays, extractMoney, extractVisits } from './storyFacts';
 
 export interface LocalAnalyzeParams {
   storyText: string;
@@ -162,9 +163,9 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
   }
 
   // 4. Scenario 1: Pengurangan Jumlah Obat
-  if (claim.scenario === 'OBAT' || /obat|resep|apotek|tablet|kapsul|insulin|strip/i.test(textLower)) {
-    // Extract received numbers
-    let receivedQty = 2; // Default realistic fallback if matched
+  obat: if (claim.scenario === 'OBAT' || /obat|resep|apotek|tablet|kapsul|insulin|strip/i.test(textLower)) {
+    // Jumlah yang diterima hanya diambil dari cerita. Tidak ada angka bawaan.
+    let receivedQty: number | null = null;
     const rxMatch = storyText.match(/cuma\s+(?:dapat|dikasih|diberikan|bawa pulang)\s+(\d+)/i) ||
                     storyText.match(/hanya\s+(\d+)/i) ||
                     storyText.match(/dapat\s+(\d+)\s+(?:macam|obat|botol|kotak|pen|kapsul)/i);
@@ -174,6 +175,21 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
       receivedQty = 2;
     } else if (/cuma\s+satu|hanya\s+satu/i.test(storyText)) {
       receivedQty = 1;
+    }
+    if (receivedQty === null) {
+      // Kata kerja "menerima" dalam gaya sehari-hari dan bahasa daerah, diikuti angka.
+      const norm = normalizeNumbers(storyText);
+      const m = /\b(?:hanya|cuma|cm|mung|ukur)\s+(?:(?!resep)\w+\s+)?(\d+)/i.exec(norm)
+        || /\b(?:entuk|narima|nampi|nerima|dpt|dapet|dikasih|dikasi|menerima|terima)\s+(?:(?!resep)\w+\s+)?(\d+)/i.exec(norm);
+      if (m) receivedQty = parseInt(m[1], 10);
+    }
+    if (receivedQty === null) {
+      const f = extractMedicine(storyText);
+      receivedQty = f.received ?? (f.complete ? (claim.claimed_quantity || 5) : null);
+    }
+    if (receivedQty === null) {
+      if (claim.scenario === 'OBAT') return buildInsufficient(claim, storyText, reliability.notes, 'Cerita belum menyebut berapa obat yang diterima.');
+      break obat;
     }
 
     const claimedQty = claim.claimed_quantity || 5;
@@ -249,6 +265,9 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
   // 5. Scenario 2: Menagihkan Tindakan yang Tidak Dilakukan
   if (claim.scenario === 'TINDAKAN' || /tindakan|operasi|uap|fisioterapi|nebulizer|rontgen|ekg|usg/i.test(textLower)) {
     const explicitlyDenied = /tidak pernah|tidak ada|disangkal|tidak dilakukan|cuma diperiksa stetoskop/i.test(textLower);
+    const unsure = /tidak yakin|tidak ingat|lupa|ragu|tidak tahu/i.test(textLower);
+    const affirmed = !explicitlyDenied && !unsure && /memang (?:menjalani|dilakukan|dikerjakan)|benar (?:dilakukan|dikerjakan)|saya (?:menjalani|dilakukan)|ya,? dilakukan|dilakukan pada saya/i.test(textLower);
+    if (unsure && !explicitlyDenied && claim.scenario === 'TINDAKAN') return buildInsufficient(claim, storyText, reliability.notes, 'Peserta belum yakin apakah tindakan itu dilakukan.');
     
     const reconciliation = computeDeterministicReconciliation({
       patientEvidence: {
@@ -272,7 +291,7 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
 
     const rawResult: Partial<TriageResult> = {
       case_id: `MH-2026-${Date.now().toString().slice(-4)}`,
-      status: explicitlyDenied ? 'RISK_SIGNAL' : 'POTENTIAL_DISCREPANCY',
+      status: explicitlyDenied ? 'RISK_SIGNAL' : affirmed ? 'CONSISTENT' : 'POTENTIAL_DISCREPANCY',
       risk_type: 'TINDAKAN_TIDAK_DILAKUKAN',
       source_channel: 'SIMULATED_FORM',
       claim_key: claim.claim_key,
@@ -315,12 +334,23 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
   }
 
   // 6. Scenario 3: Prolonged Length of Stay
-  if (claim.scenario === 'LOS' || /rawat inap|opname|hari rawat|pulang|masuk rs/i.test(textLower)) {
-    let patientDays = 3;
+  los: if (claim.scenario === 'LOS' || /rawat inap|opname|hari rawat|pulang|masuk rs/i.test(textLower)) {
+    let patientDays: number | null = null;
     const daysMatch = storyText.match(/(\d+)\s+hari\s+(?:rawat|opname|di\s+rs)/i) ||
                       storyText.match(/(?:selama|total)\s+(\d+)\s+hari/i);
     if (daysMatch) {
       patientDays = parseInt(daysMatch[1], 10);
+    }
+    if (patientDays === null) patientDays = extractStayDays(storyText);
+    if (patientDays === null) {
+      // Bahasa daerah ("dina", "dino", "poe"), hanya dari kalimat yang bukan tentang tagihan.
+      const own = normalizeNumbers(storyText).split(/[,;.]/).filter(x => !/tagihan|klaim|ditulis|tertulis|dibayar/i.test(x)).join(' , ');
+      const m = /(\d+)\s*(?:hari|dina|dino|poe|malam)/i.exec(own);
+      if (m) patientDays = parseInt(m[1], 10);
+    }
+    if (patientDays === null) {
+      if (claim.scenario === 'LOS') return buildInsufficient(claim, storyText, reliability.notes, 'Cerita belum menyebut berapa hari dirawat.');
+      break los;
     }
 
     const claimedDays = claim.length_of_stay_days || 6;
@@ -387,14 +417,20 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
   }
 
   // 7. Scenario 4: Iur Biaya Liar / Urun Biaya Ilegal 
-  if (claim.scenario === 'IUR_BIAYA' || /iur|biaya|bayar|kasir|pungli|tarik uang|disuruh beli sendiri|uang tunai|kwitansi luar|alat bayar/i.test(textLower)) {
-    let outOfPocket = 250000;
+  iur: if (claim.scenario === 'IUR_BIAYA' || /iur|biaya|bayar|kasir|pungli|tarik uang|disuruh beli sendiri|uang tunai|kwitansi luar|alat bayar/i.test(textLower)) {
+    let outOfPocket: number | null = null;
     const nominalMatch = storyText.match(/(?:bayar|iur|diminta|biaya|keluar uang)\s+(?:sebesar\s+)?(?:rp\.?\s*)?(\d[\d.,]*)/i) ||
                          storyText.match(/(\d{3,}(?:\.\d{3})*)/);
     if (nominalMatch) {
       const cleanNum = nominalMatch[1].replace(/[.,]/g, '');
       const parsed = parseInt(cleanNum, 10);
       if (parsed > 0) outOfPocket = parsed;
+    }
+    if (outOfPocket === null && /\b(?:tidak|tak|ga|gak|nggak|enggak)\s+(?:ada\s+)?(?:membayar|bayar|dipungut|diminta|menambah)|gratis|sama sekali tidak (?:bayar|membayar)/i.test(storyText)) outOfPocket = 0;
+    if (outOfPocket === null) outOfPocket = extractMoney(storyText);
+    if (outOfPocket === null) {
+      if (claim.scenario === 'IUR_BIAYA') return buildInsufficient(claim, storyText, reliability.notes, 'Cerita belum menyebut berapa rupiah yang dibayar.');
+      break iur;
     }
 
     const reconciliation = computeDeterministicReconciliation({
@@ -416,7 +452,7 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
 
     const rawResult: Partial<TriageResult> = {
       case_id: `MH-2026-${Date.now().toString().slice(-4)}`,
-      status: 'RISK_SIGNAL',
+      status: outOfPocket === 0 ? 'CONSISTENT' : 'RISK_SIGNAL',
       risk_type: 'IUR_BIAYA_ILEGAL',
       source_channel: 'SIMULATED_FORM',
       claim_key: claim.claim_key,
@@ -442,7 +478,7 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
       reliability_notes: reliability.notes,
       evidence_confidence: 'HIGH',
       information_sufficiency: 'SUFFICIENT',
-      verification_priority: 'HIGH',
+      verification_priority: outOfPocket === 0 ? 'LOW' : 'HIGH',
       recommended_verification: [
         `Periksa bukti kwitansi transaksi kasir di ${claim.facility_name} pada tanggal ${claim.service_date}.`,
         'Cek apakah ada Surat Pernyataan Kenaikan Kelas bermaterai atas kehendak sendiri.',
@@ -458,7 +494,8 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
   // 8. Scenario 5: Kunjungan Fiktif (Phantom Billing)
   if (claim.scenario === 'KUNJUNGAN_FIKTIF' || /kunjungan fiktif|tidak pernah kontrol|tidak pernah hadir|klaim siluman|phantom/i.test(textLower)) {
     const billedVisits = claim.billed_visits_count || 4;
-    const actualVisits = 1;
+    const actualVisits = extractVisits(storyText);
+    if (actualVisits === null) return buildInsufficient(claim, storyText, reliability.notes, 'Cerita belum menyebut berapa kali peserta datang.');
 
     const reconciliation = computeDeterministicReconciliation({
       patientEvidence: {
@@ -480,7 +517,7 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
 
     const rawResult: Partial<TriageResult> = {
       case_id: `MH-2026-${Date.now().toString().slice(-4)}`,
-      status: 'RISK_SIGNAL',
+      status: billedVisits - actualVisits <= 0 ? 'CONSISTENT' : 'RISK_SIGNAL',
       risk_type: 'KUNJUNGAN_FIKTIF',
       source_channel: 'SIMULATED_FORM',
       claim_key: claim.claim_key,
@@ -507,7 +544,7 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
       reliability_notes: reliability.notes,
       evidence_confidence: 'HIGH',
       information_sufficiency: 'SUFFICIENT',
-      verification_priority: 'HIGH',
+      verification_priority: billedVisits - actualVisits <= 0 ? 'LOW' : 'HIGH',
       recommended_verification: [
         'Uji silang daftar presensi fisik dan tanda tangan basah di loket pendaftaran rawat jalan faskes.',
         'Cek rekaman CCTV atau log Rekam Medis Elektronik (RME) saat jam kunjungan berlangsung.',
@@ -672,4 +709,29 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
     processing_source: 'LOCAL_TRIAGE_ENGINE'
   };
   return validateAndSanitizeTriageResult(rawGeneric).sanitizedResult;
+}
+
+/** Hasil "informasi belum cukup": dipakai bila cerita tidak menyebut angka yang dibutuhkan. Tidak ada angka yang ditebak. */
+function buildInsufficient(claim: DummyClaim, storyText: string, notes: string[], why: string): TriageResult {
+  const raw: Partial<TriageResult> = {
+    case_id: `MH-2026-${Date.now().toString().slice(-4)}`,
+    status: 'INSUFFICIENT_EVIDENCE',
+    risk_type: 'TIDAK_DAPAT_DITENTUKAN',
+    source_channel: 'SIMULATED_FORM',
+    claim_key: claim.claim_key,
+    patient_evidence: { stated_by_patient: [storyText] },
+    claim_evidence: { claim_key: claim.claim_key, facility_id: claim.facility_id, facility_name: claim.facility_name, service_date: claim.service_date },
+    reconciliation: { finding: `Informasi belum cukup untuk dibandingkan dengan klaim. ${why}`, matched_fields: ['facility_id'], different_fields: [] },
+    alternative_explanations: ['Peserta belum menyebut angka yang diperlukan, sehingga tidak ada yang bisa dibandingkan.'],
+    reliability_flag: 'LOW',
+    reliability_notes: notes.length ? notes : ['Tidak memuat angka yang dibutuhkan untuk perbandingan.'],
+    evidence_confidence: 'LOW',
+    information_sufficiency: 'INSUFFICIENT',
+    verification_priority: 'LOW',
+    recommended_verification: ['Minta peserta melengkapi informasi yang kurang sebelum kasus diperiksa.'],
+    fraud_determination: 'NOT_DETERMINED',
+    ai_interpretation: 'Informasi belum cukup. Sistem tidak menebak angka yang tidak disebut peserta.',
+    processing_source: 'LOCAL_TRIAGE_ENGINE'
+  };
+  return validateAndSanitizeTriageResult(raw).sanitizedResult;
 }
