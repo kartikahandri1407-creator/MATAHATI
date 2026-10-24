@@ -69,7 +69,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
           timestamp: new Date().toISOString(),
           user_role: userRole,
           action: `STATUS_${selectedStatus}`,
-          note: statusNote.trim() || `Status verifikasi diperbarui menjadi ${selectedStatus}`
+          note: statusNote.trim() || `Tahap kasus diubah menjadi "${({ NEW: 'Baru masuk', UNDER_REVIEW: 'Sedang diperiksa', CLARIFICATION_DRAFTED: 'Menunggu jawaban faskes', ESCALATED_FOR_OFFICIAL_PROCESS: 'Diteruskan ke lapangan', CLOSED_NO_ACTION: 'Ditutup' } as Record<string, string>)[selectedStatus] || selectedStatus}".`
         }
       ]
     };
@@ -189,7 +189,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
             {/* Section A: Bukti Pasien */}
             <div className="bg-white p-4 rounded-lg border border-slate-200 space-y-2">
               <div className="pb-2 border-b border-slate-100 font-bold text-slate-900 flex items-center justify-between">
-                <span>Bukti Penuturan Pasien</span>
+                <span>Cerita peserta</span>
                 <span className="text-[11px] font-normal text-slate-500">
                   {caseRecord.input_by === 'KADER_PENDAMPING' ? 'Pendamping / Kader' : 'Peserta Mandiri'}
                 </span>
@@ -212,7 +212,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
               <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                 {caseRecord.patient_evidence.received_quantity !== undefined && caseRecord.patient_evidence.received_quantity !== null && (
                   <div>
-                    <span className="text-slate-500 block">Obat Fisik Diterima:</span>
+                    <span className="text-slate-500 block">Obat yang diterima peserta:</span>
                     {isEditingData ? (
                       <input
                         type="number"
@@ -229,7 +229,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 )}
                 {caseRecord.patient_evidence.length_of_stay_days !== undefined && caseRecord.patient_evidence.length_of_stay_days !== null && (
                   <div>
-                    <span className="text-slate-500 block">Lama Rawat Fisik:</span>
+                    <span className="text-slate-500 block">Lama rawat menurut peserta:</span>
                     {isEditingData ? (
                       <input
                         type="number"
@@ -246,7 +246,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 )}
                 {caseRecord.patient_evidence.out_of_pocket_fee !== undefined && caseRecord.patient_evidence.out_of_pocket_fee !== null && (
                   <div>
-                    <span className="text-slate-500 block">Iur Biaya Ditarik Kasir:</span>
+                    <span className="text-slate-500 block">Biaya tambahan di kasir menurut peserta:</span>
                     <span className="font-bold text-rose-700">
                       Rp {caseRecord.patient_evidence.out_of_pocket_fee.toLocaleString('id-ID')}
                     </span>
@@ -254,7 +254,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 )}
                 {caseRecord.patient_evidence.actual_visits_count !== undefined && caseRecord.patient_evidence.actual_visits_count !== null && (
                   <div>
-                    <span className="text-slate-500 block">Kunjungan Riil Peserta:</span>
+                    <span className="text-slate-500 block">Kunjungan menurut peserta:</span>
                     <span className="font-semibold text-slate-800">
                       {caseRecord.patient_evidence.actual_visits_count} kali hadir
                     </span>
@@ -262,7 +262,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 )}
                 {caseRecord.patient_evidence.readmission_interval_days !== undefined && caseRecord.patient_evidence.readmission_interval_days !== null && (
                   <div>
-                    <span className="text-slate-500 block">Interval Readmisi:</span>
+                    <span className="text-slate-500 block">Jarak rawat inap ulang:</span>
                     <span className="font-semibold text-slate-800">
                       {caseRecord.patient_evidence.readmission_interval_days} hari
                     </span>
@@ -274,17 +274,17 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
             {/* Section B: Data Klaim Faskes */}
             <div className="bg-white p-4 rounded-lg border border-slate-200 space-y-2">
               <div className="pb-2 border-b border-slate-100 font-bold text-slate-900 flex items-center justify-between">
-                <span>Catatan Administrasi Klaim Faskes</span>
+                <span>Yang tercatat pada klaim</span>
                 <span className="font-mono text-[11px] text-slate-500">{caseRecord.claim_key}</span>
               </div>
               <div className="space-y-1.5 pt-1">
                 <div>
-                  <span className="text-slate-500 block text-[11px]">Tanggal Kunjungan:</span>
+                  <span className="text-slate-500 block text-[11px]">Tanggal layanan:</span>
                   <span className="font-medium text-slate-800">{fmtTanggal(caseRecord.service_date)}</span>
                 </div>
                 {caseRecord.claim_evidence.medication && (
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Resep Obat Klaim:</span>
+                    <span className="text-slate-500 block text-[11px]">Obat pada klaim:</span>
                     <span className="font-medium text-slate-800">
                       {caseRecord.claim_evidence.medication} (Kuantitas Ditagihkan: {caseRecord.claim_evidence.claimed_quantity ?? 'N/A'})
                     </span>
@@ -292,31 +292,31 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 )}
                 {caseRecord.claim_evidence.procedure && (
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Prosedur Medis:</span>
+                    <span className="text-slate-500 block text-[11px]">Tindakan pada klaim:</span>
                     <span className="font-medium text-slate-800">{caseRecord.claim_evidence.procedure}</span>
                   </div>
                 )}
                 {caseRecord.claim_evidence.length_of_stay_days && (
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Durasi Rawat Inap Ditagihkan:</span>
+                    <span className="text-slate-500 block text-[11px]">Lama rawat pada klaim:</span>
                     <span className="font-medium text-slate-800">{caseRecord.claim_evidence.length_of_stay_days} hari</span>
                   </div>
                 )}
                 {caseRecord.claim_evidence.billed_visits_count && (
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Jumlah Kunjungan Ditagihkan:</span>
+                    <span className="text-slate-500 block text-[11px]">Kunjungan pada klaim:</span>
                     <span className="font-medium text-slate-800">{caseRecord.claim_evidence.billed_visits_count} kali kunjungan</span>
                   </div>
                 )}
                 {caseRecord.claim_evidence.claimed_amount && (
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Total Nilai Klaim Paket JKN:</span>
+                    <span className="text-slate-500 block text-[11px]">Nilai klaim yang dibayar program:</span>
                     <span className="font-medium text-slate-800">Rp {caseRecord.claim_evidence.claimed_amount.toLocaleString('id-ID')}</span>
                   </div>
                 )}
                 {caseRecord.claim_evidence.diagnosis_claimed && (
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Diagnosis Klaim:</span>
+                    <span className="text-slate-500 block text-[11px]">Diagnosis pada klaim:</span>
                     <span className="font-medium text-slate-800">{caseRecord.claim_evidence.diagnosis_claimed}</span>
                   </div>
                 )}
@@ -336,21 +336,21 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
           {/* Section C: Hasil Rekonsiliasi & Aritmetika */}
           <div className="bg-white p-4 rounded-lg border border-slate-200 space-y-2">
             <h4 className="font-bold text-slate-900 pb-2 border-b border-slate-100">
-              Hasil Rekonsiliasi Perbandingan Data
+              Hasil perbandingan dengan klaim
             </h4>
             <p className="leading-relaxed text-slate-800">
               {caseRecord.reconciliation.finding}
             </p>
             {caseRecord.reconciliation.computed_difference !== undefined && caseRecord.reconciliation.computed_difference !== null && (
               <div className="pt-1 text-slate-700">
-                <span className="font-semibold text-slate-900">Selisih Terhitung: </span>
+                <span className="font-semibold text-slate-900">Selisih (dihitung program): </span>
                 <span className="font-mono font-bold text-rose-700">
                   {caseRecord.reconciliation.computed_difference} {caseRecord.reconciliation.difference_unit || ''}
                 </span>
               </div>
             )}
             <p className="text-[11px] text-slate-500 pt-1">
-              {caseRecord.ai_interpretation}
+              {(caseRecord.ai_interpretation || '').replace(/\s*\(Early Warning\)/g, '')}
             </p>
           </div>
 
@@ -389,7 +389,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
           <div className="bg-white p-4 rounded-lg border border-slate-200 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h4 className="font-bold text-slate-900">
-                Pembaruan Status Verifikasi & Jejak Audit
+                Tindak lanjut petugas dan jejak kasus
               </h4>
               <button
                 type="button"
@@ -397,28 +397,28 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors"
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>Buat Surat Klarifikasi</span>
+                <span>Buat surat konfirmasi</span>
               </button>
             </div>
 
             <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Status Verifikasi:</label>
+                  <label className="block font-medium text-slate-600 mb-1">Tahap kasus (ubah sesuai tindak lanjut Anda):</label>
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value as VerificationStatus)}
                     className="w-full rounded border border-slate-300 bg-white p-1.5 text-xs text-slate-800 font-medium"
                   >
-                    <option value="NEW">Baru Masuk</option>
-                    <option value="UNDER_REVIEW">Sedang Ditelaah Petugas</option>
-                    <option value="CLARIFICATION_DRAFTED">Draf Klarifikasi Siap Dikirim</option>
-                    <option value="CLOSED_NO_ACTION">Selesai Ditelaah (Tanpa Tindak Lanjut)</option>
-                    <option value="ESCALATED_FOR_OFFICIAL_PROCESS">Diteruskan ke Pemeriksaan Lapangan</option>
+                    <option value="NEW">Baru masuk</option>
+                    <option value="UNDER_REVIEW">Sedang diperiksa</option>
+                    <option value="CLARIFICATION_DRAFTED">Menunggu jawaban faskes</option>
+                    <option value="CLOSED_NO_ACTION">Ditutup (tanpa tindak lanjut)</option>
+                    <option value="ESCALATED_FOR_OFFICIAL_PROCESS">Diteruskan ke lapangan</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Nama / Jabatan Verifikator:</label>
+                  <label className="block font-medium text-slate-600 mb-1">Nama atau jabatan petugas:</label>
                   <input
                     type="text"
                     value={userRole}
@@ -428,6 +428,15 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 </div>
               </div>
 
+              <div className="text-[11px] text-slate-600 bg-white border border-slate-200 rounded-md px-2.5 py-2 leading-relaxed">
+                {({
+                  NEW: 'Belum disentuh petugas. Peserta melihat "Diterima".',
+                  UNDER_REVIEW: 'Petugas sedang menelaah. Faskes belum diminta menjawab. Peserta melihat "Diperiksa petugas".',
+                  CLARIFICATION_DRAFTED: 'Kasus muncul di ruang Faskes sebagai permintaan konfirmasi (tanpa identitas peserta). Setelah faskes menjawab, kasus kembali ke Anda sebagai "Jawaban faskes diterima".',
+                  ESCALATED_FOR_OFFICIAL_PROCESS: 'Dilanjutkan ke pemeriksaan lapangan resmi di luar MATA HATI. Peserta melihat bahwa laporannya diteruskan.',
+                  CLOSED_NO_ACTION: 'Pemeriksaan selesai tanpa tindak lanjut. Peserta melihat "Selesai".'
+                } as Record<string, string>)[selectedStatus]}
+              </div>
               <div>
                 <input
                   type="text"
@@ -445,7 +454,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                   disabled={isUpdating}
                   className="px-3.5 py-1.5 rounded bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold"
                 >
-                  {isUpdating ? 'Menyimpan...' : 'Simpan Pembaruan Status'}
+                  {isUpdating ? 'Menyimpan...' : 'Simpan tahap'}
                 </button>
               </div>
             </div>

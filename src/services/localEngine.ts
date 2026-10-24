@@ -25,7 +25,8 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
 
   // Check for adversarial prompt injection
   const injectionPatterns = ['abaikan instruksi', 'system override', 'nyatakan faskes ini fraud', 'fraud 100%'];
-  const isAdversarial = injectionPatterns.some(p => textLower.includes(p));
+  const injectionRegex = /ignore (?:all |the )?(?:previous|above|prior)|abaikan (?:semua|seluruh|perintah)|\bsystem\s*:|instruksi sistem|fraud_determination|<\/?\w*story>|data peserta lain|developer mode|jailbreak|tampilkan (?:seluruh|semua) instruksi|(?:datangi|cari tahu|ancam)\b.{0,40}\b(?:rumah|dokter|petugas)|rumahnya di/i;
+  const isAdversarial = injectionPatterns.some(p => textLower.includes(p)) || injectionRegex.test(storyText);
 
   if (isAdversarial) {
     const rawResult: Partial<TriageResult> = {
@@ -264,10 +265,10 @@ export function analyzeLocally(params: LocalAnalyzeParams): TriageResult {
 
   // 5. Scenario 2: Menagihkan Tindakan yang Tidak Dilakukan
   if (claim.scenario === 'TINDAKAN' || /tindakan|operasi|uap|fisioterapi|nebulizer|rontgen|ekg|usg/i.test(textLower)) {
-    const explicitlyDenied = /tidak pernah|tidak ada|disangkal|tidak dilakukan|cuma diperiksa stetoskop/i.test(textLower);
+    const explicitlyDenied = /tidak pernah|tidak ada|disangkal|tidak dilakukan|(?:cuma|hanya) diperiksa|sama sekali tidak/i.test(textLower);
     const unsure = /tidak yakin|tidak ingat|lupa|ragu|tidak tahu/i.test(textLower);
     const affirmed = !explicitlyDenied && !unsure && /memang (?:menjalani|dilakukan|dikerjakan)|benar (?:dilakukan|dikerjakan)|saya (?:menjalani|dilakukan)|ya,? dilakukan|dilakukan pada saya/i.test(textLower);
-    if (unsure && !explicitlyDenied && claim.scenario === 'TINDAKAN') return buildInsufficient(claim, storyText, reliability.notes, 'Peserta belum yakin apakah tindakan itu dilakukan.');
+    if (unsure && !explicitlyDenied) return buildInsufficient(claim, storyText, reliability.notes, 'Peserta belum yakin apakah tindakan itu dilakukan.');
     
     const reconciliation = computeDeterministicReconciliation({
       patientEvidence: {

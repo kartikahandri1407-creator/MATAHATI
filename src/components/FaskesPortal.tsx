@@ -44,6 +44,8 @@ export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRes
   const toggleDoc = (id: string, d: string) => setDocs(p => ({ ...p, [id]: (p[id] || []).includes(d) ? (p[id] || []).filter(x => x !== d) : [...(p[id] || []), d] }));
 
   const withRequests = useMemo(() => new Set(cases.filter(c => c.verification_status === 'CLARIFICATION_DRAFTED' || c.facility_response).map(c => c.facility_id)), [cases]);
+  const requestCount = useMemo(() => { const m = new Map<string, number>(); cases.forEach(c => { if (c.verification_status === 'CLARIFICATION_DRAFTED' || c.facility_response) m.set(c.facility_id, (m.get(c.facility_id) || 0) + 1); }); return m; }, [cases]);
+  const sortedFacilities = useMemo(() => [...facilities].sort((a, b) => (requestCount.get(b.facility_id) || 0) - (requestCount.get(a.facility_id) || 0) || a.facility_name.localeCompare(b.facility_name, 'id')), [facilities, requestCount]);
   const fid = facilityId || [...withRequests][0] || facilities[0]?.facility_id || '';
   const mine = cases.filter(c => c.facility_id === fid && (c.verification_status === 'CLARIFICATION_DRAFTED' || c.facility_response));
   const pending = mine.filter(c => c.verification_status === 'CLARIFICATION_DRAFTED');
@@ -58,9 +60,10 @@ export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRes
         <Building2 className="w-5 h-5 text-emerald-700 shrink-0" />
         <label htmlFor="faskes" className="text-sm font-semibold text-slate-700 shrink-0">Faskes Anda</label>
         <select id="faskes" value={fid} onChange={e => setFacilityId(e.target.value)} className="flex-1 min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-          {facilities.map(f => <option key={f.facility_id} value={f.facility_id}>{f.facility_name}{withRequests.has(f.facility_id) ? ' (ada permintaan)' : ''}</option>)}
+          {sortedFacilities.map(f => { const n = requestCount.get(f.facility_id) || 0; return <option key={f.facility_id} value={f.facility_id}>{f.facility_name}{n ? ` (${n} permintaan)` : ''}</option>; })}
         </select>
       </div>
+      <p className="text-xs text-slate-500 -mt-3 px-1">Pada penerapan nyata, faskes login dan hanya melihat permintaan untuk faskesnya sendiri. Di demo ini Anda memilih faskes untuk memperagakan.</p>
 
       {(pending.length > 0 || answered.length > 0) && (
         <div className="grid grid-cols-2 gap-3 text-center" aria-label="Ringkasan permintaan">

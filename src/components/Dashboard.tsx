@@ -49,19 +49,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
   const [searchTerm, setSearchTerm] = useState('');
   const [stageF, setStageF] = useState<'ALL' | Stage>('ALL');
   const [filterRiskType, setFilterRiskType] = useState('ALL');
+  const [quick, setQuick] = useState<'ALL' | 'ACT' | 'HIGH' | 'WAIT' | 'DONE'>('ALL');
+  const [prioF, setPrioF] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
+  const [sortBy, setSortBy] = useState<'PRIORITAS' | 'TERBARU' | 'FASKES'>('PRIORITAS');
+  const [limit, setLimit] = useState(10);
+  const levelOf = (c: CaseRecord) => scores?.[c.case_id]?.level ?? c.verification_priority;
+  const isAct = (c: CaseRecord) => ['BARU', 'DIPERIKSA', 'JAWABAN_DITERIMA'].includes(caseStage(c));
+  const matchQuick = (c: CaseRecord, q: typeof quick) =>
+    q === 'ALL' ? true : q === 'ACT' ? isAct(c) : q === 'HIGH' ? levelOf(c) === 'HIGH' && stageGroup(caseStage(c)) !== 'DONE' : q === 'WAIT' ? caseStage(c) === 'MENUNGGU_FASKES' : stageGroup(caseStage(c)) === 'DONE';
+  const quickCount = (q: typeof quick) => cases.filter(c => matchQuick(c, q)).length;
+  const anyFilter = quick !== 'ALL' || stageF !== 'ALL' || filterRiskType !== 'ALL' || prioF !== 'ALL' || searchTerm !== '';
+  const resetFilters = () => { setQuick('ALL'); setStageF('ALL'); setFilterRiskType('ALL'); setPrioF('ALL'); setSearchTerm(''); setSortBy('PRIORITAS'); setLimit(10); };
   const outcomes = useMemo(() => summarizeOutcomes(cases), [cases]);
 
   const verifyOpen = useMemo(() => cases.filter(c => c.status === 'RISK_SIGNAL' && stageGroup(caseStage(c)) !== 'DONE').length, [cases]);
 
-  const visible = useMemo(() => sortQueue(cases, scores ? (x => scores[x.case_id]?.total ?? 0) : undefined).filter(c => {
-    if (stageF !== 'ALL' && caseStage(c) !== stageF) return false;
-    if (filterRiskType !== 'ALL' && c.risk_type !== filterRiskType) return false;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      return c.case_id.toLowerCase().includes(q) || c.facility_name.toLowerCase().includes(q) || c.patient_statement.toLowerCase().includes(q) || c.reconciliation.finding.toLowerCase().includes(q);
-    }
-    return true;
-  }), [cases, scores, stageF, filterRiskType, searchTerm]);
+  const visible = useMemo(() => {
+    const base = sortQueue(cases, scores ? (x => scores[x.case_id]?.total ?? 0) : undefined).filter(c => {
+      if (!matchQuick(c, quick)) return false;
+      if (stageF !== 'ALL' && caseStage(c) !== stageF) return false;
+      if (filterRiskType !== 'ALL' && c.risk_type !== filterRiskType) return false;
+      if (prioF !== 'ALL' && levelOf(c) !== prioF) return false;
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        return c.case_id.toLowerCase().includes(q) || c.facility_name.toLowerCase().includes(q) || c.patient_statement.toLowerCase().includes(q) || c.reconciliation.finding.toLowerCase().includes(q);
+      }
+      return true;
+    });
+    if (sortBy === 'TERBARU') return [...base].sort((a, b) => (b.service_date || '').localeCompare(a.service_date || ''));
+    if (sortBy === 'FASKES') return [...base].sort((a, b) => a.facility_name.localeCompare(b.facility_name, 'id'));
+    return base;
+  }, [cases, scores, quick, stageF, filterRiskType, prioF, searchTerm, sortBy]);
 
   const top = [...facilityPatterns].sort((a, b) => b.signal_count - a.signal_count)[0];
   const topCases = top ? cases.filter(c => top.case_ids.includes(c.case_id)) : [];
@@ -154,27 +172,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
           )}
 
           <section className="card overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              <div className="text-sm text-slate-600"><b className="text-tinta">{visible.length}</b> dari {cases.length} laporan{stageF !== 'ALL' && <> · tahap <b>{STAGE_LABEL[stageF]}</b> <button type="button" onClick={() => setStageF('ALL')} className="ml-1 underline text-emerald-800 font-semibold">tampilkan semua</button></>}</div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative sm:w-64">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input type="search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Cari faskes atau nomor kasus" aria-label="Cari kasus"
-                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-700" />
+            <div className="p-4 border-b border-slate-100 space-y-3">
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Saring cepat">
+                {([['ALL', 'Semua'], ['ACT', 'Perlu ditindaklanjuti'], ['HIGH', 'Prioritas tinggi'], ['WAIT', 'Menunggu faskes'], ['DONE', 'Selesai']] as const).map(([k, t]) => {
+                  const on = quick === k;
+                  return <button key={k} type="button" aria-pressed={on} onClick={() => { setQuick(k); setLimit(10); }} className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition ${on ? 'bg-tinta text-white border-tinta' : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'}`}>{t} <span className={on ? 'text-white/80' : 'text-slate-400'}>{quickCount(k)}</span></button>;
+                })}
+              </div>
+              <div className="flex flex-col gap-3">
+                <div className="text-sm text-slate-600"><b className="text-tinta">{visible.length}</b> dari {cases.length} laporan{stageF !== 'ALL' && <> · tahap <b>{STAGE_LABEL[stageF]}</b></>}{anyFilter && <button type="button" onClick={resetFilters} className="ml-2 underline text-emerald-800 font-semibold">hapus semua filter</button>}</div>
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                  <div className="relative sm:flex-1 sm:min-w-[15rem] sm:max-w-sm">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input type="search" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setLimit(10); }} placeholder="Cari faskes atau nomor kasus" aria-label="Cari kasus"
+                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-sm placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-700" />
+                  </div>
+                  <select value={prioF} onChange={e => { setPrioF(e.target.value as any); setLimit(10); }} aria-label="Filter prioritas" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                    <option value="ALL">Semua prioritas</option><option value="HIGH">Prioritas tinggi</option><option value="MEDIUM">Prioritas sedang</option><option value="LOW">Prioritas rendah</option>
+                  </select>
+                  <select value={filterRiskType} onChange={e => { setFilterRiskType(e.target.value); setLimit(10); }} aria-label="Filter jenis"
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                    <option value="ALL">Semua jenis</option>
+                    {(['PENGURANGAN_JUMLAH_OBAT', 'TINDAKAN_TIDAK_DILAKUKAN', 'PROLONGED_LOS', 'IUR_BIAYA_ILEGAL', 'KUNJUNGAN_FIKTIF', 'READMISI_MANIPULATIF', 'UPCODING_DIAGNOSIS'] as const).map(k => <option key={k} value={k}>{RISK_LABEL[k]}</option>)}
+                  </select>
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} aria-label="Urutkan" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+                    <option value="PRIORITAS">Urut: prioritas</option><option value="TERBARU">Urut: tanggal layanan terbaru</option><option value="FASKES">Urut: nama faskes</option>
+                  </select>
                 </div>
-                <select value={filterRiskType} onChange={e => setFilterRiskType(e.target.value)} aria-label="Filter jenis"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-                  <option value="ALL">Semua jenis</option>
-                  {(['PENGURANGAN_JUMLAH_OBAT', 'TINDAKAN_TIDAK_DILAKUKAN', 'PROLONGED_LOS', 'IUR_BIAYA_ILEGAL', 'KUNJUNGAN_FIKTIF', 'READMISI_MANIPULATIF', 'UPCODING_DIAGNOSIS'] as const).map(k => <option key={k} value={k}>{RISK_LABEL[k]}</option>)}
-                </select>
               </div>
             </div>
 
             {visible.length === 0 ? (
-              <div className="py-14 text-center text-sm text-slate-500">Tidak ada laporan yang cocok dengan filter ini.</div>
+              <div className="py-14 text-center text-sm text-slate-500">Tidak ada laporan yang cocok dengan filter ini. <button type="button" onClick={resetFilters} className="underline text-emerald-800 font-semibold">Hapus semua filter</button></div>
             ) : (
               <ul className="divide-y divide-slate-100">
-                {visible.map(c => (
+                {visible.slice(0, limit).map(c => (
                   <li key={c.case_id} className="group relative flex items-stretch hover:bg-slate-50 transition-colors">
                     <span className={`w-1.5 shrink-0 ${PRIORITY_BAR[scores?.[c.case_id]?.level ?? c.verification_priority]} ${stageGroup(caseStage(c)) === 'DONE' ? 'opacity-30' : ''}`} aria-hidden="true" />
                     <button type="button" onClick={() => onOpenCaseDetail(c)} className="flex-1 min-w-0 text-left px-4 py-3.5 grid gap-x-4 gap-y-1 md:grid-cols-[1.4fr_1.1fr_1fr_.9fr_auto] md:items-center">
@@ -193,6 +225,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ cases, facilityPatterns, s
                   </li>
                 ))}
               </ul>
+            )}
+            {visible.length > limit && (
+              <div className="p-4 border-t border-slate-100 text-center"><button type="button" onClick={() => setLimit(n => n + 10)} className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold hover:bg-slate-50">Tampilkan 10 lagi ({visible.length - limit} tersisa)</button></div>
             )}
           </section>
         </>

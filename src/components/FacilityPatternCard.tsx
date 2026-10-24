@@ -26,7 +26,7 @@ export const FacilityPatternCard: React.FC<Props> = ({ pattern, onOpenCase }) =>
       </div>
       <div className="mt-3 flex items-end gap-1.5">
         <span className="text-3xl font-extrabold text-tinta leading-none">{pattern.signal_count}</span>
-        <span className="text-xs text-slate-500 pb-0.5">pelapor berbeda dari {pattern.total_reports} laporan</span>
+        <span className="text-xs text-slate-500 pb-0.5">pelapor berbeda · {pattern.total_reports} laporan masuk</span>
       </div>
       <p className="mt-2 text-sm text-slate-600 leading-relaxed">{pattern.pattern_summary}</p>
       <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-xs">

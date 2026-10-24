@@ -26,11 +26,12 @@ export const PriorityBreakdown: React.FC<{ score: PriorityScore }> = ({ score })
         </li>
       ))}
     </ul>
+    <p className="text-[11px] text-slate-600 leading-relaxed pt-1"><b>Dua pengali di bawah</b> menilai seberapa kuat laporan ini. Angka <span className="font-mono">× 1,00</span> berarti tidak ada penurunan. Laporan yang kabur atau informasinya kurang mendapat pengali di bawah 1, sehingga skornya turun. Pengali tidak pernah menaikkan skor.</p>
     <div className="grid sm:grid-cols-2 gap-2 pt-1">
       {score.modifiers.map(m => (
         <div key={m.id} className="rounded-lg bg-slate-50 p-2.5">
           <div className="flex items-center justify-between text-slate-800"><span className="font-semibold">{m.label}</span><span className="font-mono">× {m.multiplier.toFixed(2).replace('.', ',')}</span></div>
-          <p className="text-[11px] text-slate-500">{m.detail}</p>
+          <p className="text-[11px] text-slate-500">{m.detail} {m.multiplier >= 1 ? 'Skor tidak diturunkan.' : `Skor diturunkan ${Math.round((1 - m.multiplier) * 100)}%.`}</p>
         </div>
       ))}
     </div>
