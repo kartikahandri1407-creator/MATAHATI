@@ -24,6 +24,9 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
   const [confirm, setConfirm] = useState<{ text: string; run: () => void } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [imp, setImp] = useState<{ name: string; res: ImportResult } | null>(null);
+  const [cq, setCq] = useState('');
+  const [csrc, setCsrc] = useState<'ALL' | 'CONTOH' | 'SIM'>('ALL');
+  const [climit, setClimit] = useState(50);
 
   const onCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; e.target.value = '';
@@ -78,6 +81,12 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
 
   const num = (v: string): number | undefined => (v === '' ? undefined : Number(v));
 
+  const isSimClaim = (c: DummyClaim) => /^SEP-SIM/i.test(c.sep_number || '');
+  const simCount = claims.items.filter(isSimClaim).length;
+  const claimRows = [...claims.items]
+    .filter(c => csrc === 'ALL' || (csrc === 'SIM' ? isSimClaim(c) : !isSimClaim(c)))
+    .filter(c => { const q = cq.trim().toLowerCase(); return !q || c.sep_number.toLowerCase().includes(q) || c.facility_name.toLowerCase().includes(q) || (SCENARIO_LABEL[c.scenario] || '').toLowerCase().includes(q); })
+    .sort((a, b) => Number(isSimClaim(a)) - Number(isSimClaim(b)));
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <PageHeader eyebrow="Pengelola" title="Data Klaim" text="Catatan klaim dan faskes yang menjadi pembanding jawaban peserta. Di produksi, halaman ini menjadi titik hubung ke sistem klaim BPJS Kesehatan; di prototipe, di sinilah data fiktif dimasukkan, diubah, atau diimpor lewat CSV." />
@@ -107,13 +116,25 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
 
       {col.error && <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-sm text-rose-800" role="alert">{col.error}</div>}
 
+      {tab === 'claims' && claims.items.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {([['ALL', `Semua (${claims.items.length})`], ['CONTOH', `Contoh awal (${claims.items.length - simCount})`], ['SIM', `Simulasi skala (${simCount})`]] as const).map(([k, t]) => (
+              <button key={k} type="button" aria-pressed={csrc === k} onClick={() => { setCsrc(k); setClimit(50); }} className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${csrc === k ? 'bg-tinta text-white border-tinta' : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'}`}>{t}</button>
+            ))}
+            <input type="search" value={cq} onChange={e => { setCq(e.target.value); setClimit(50); }} placeholder="Cari nomor SEP, faskes, atau jenis" aria-label="Cari klaim" className="flex-1 min-w-[14rem] max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          {simCount > 0 && <p className="text-xs text-slate-500">Klaim bernomor SEP-SIM adalah data fiktif untuk memperagakan impor dan skala. Klaim contoh awal ditampilkan lebih dulu dan dipakai pada alur peserta.</p>}
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-slate-200 overflow-x-auto">
         {tab === 'claims' ? (
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs text-slate-500 text-left"><tr><th className="p-3">No. SEP</th><th className="p-3">Faskes</th><th className="p-3">Tanggal</th><th className="p-3">Jenis</th><th className="p-3">Tercatat</th><th className="p-3 w-24" /></tr></thead>
             <tbody>
-              {claims.items.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">Belum ada klaim. Klik Tambah.</td></tr>}
-              {claims.items.map(c => (
+              {claimRows.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">{claims.items.length === 0 ? 'Belum ada klaim. Klik Tambah.' : 'Tidak ada klaim yang cocok dengan penyaringan ini.'}</td></tr>}
+              {claimRows.slice(0, climit).map(c => (
                 <tr key={c.claim_key} className="border-t border-slate-100">
                   <td className="p-3 font-mono text-xs">{c.sep_number}</td><td className="p-3">{c.facility_name}</td><td className="p-3 whitespace-nowrap">{fmtTanggal(c.service_date)}</td>
                   <td className="p-3">{SCENARIO_LABEL[c.scenario]}</td><td className="p-3 text-slate-600">{claimSummary(c)}</td>
@@ -145,6 +166,12 @@ export const DataMaster: React.FC<Props> = ({ facilities, claims }) => {
           </table>
         )}
       </div>
+      {tab === 'claims' && (
+        <div className="flex items-center justify-between text-sm text-slate-600">
+          <span>Menampilkan {Math.min(climit, claimRows.length)} dari {claimRows.length} klaim</span>
+          {claimRows.length > climit && <button type="button" onClick={() => setClimit(n => n + 50)} className="px-4 py-2 rounded-lg border border-slate-300 font-semibold hover:bg-slate-50">Tampilkan 50 lagi</button>}
+        </div>
+      )}
 
       {/* Form faskes */}
       {facForm && (

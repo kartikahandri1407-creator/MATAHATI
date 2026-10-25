@@ -39,7 +39,7 @@ export function summarizeOutcomes(cases: CaseRecord[]): Outcomes {
 
 /** Berapa hari sebuah permintaan konfirmasi menunggu (dari catatan audit pembuatan draf). */
 export function waitingDays(c: CaseRecord, now = Date.now()): number | null {
-  const e = [...(c.audit_log || [])].reverse().find(a => a.action === 'DRAFT_CLARIFICATION_CREATED');
+  const e = [...(c.audit_log || [])].reverse().find(a => a.action === 'DRAFT_CLARIFICATION_CREATED' || a.action === 'STATUS_CLARIFICATION_DRAFTED');
   const t = e ? Date.parse(e.timestamp) : NaN;
   return Number.isFinite(t) ? Math.max(0, Math.floor((now - t) / 86_400_000)) : null;
 }

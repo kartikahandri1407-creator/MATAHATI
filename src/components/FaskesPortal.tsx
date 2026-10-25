@@ -5,6 +5,7 @@ import { demoNow, waitingDays } from '../data/outcomes';
 import { Building2, CalendarClock, CheckCircle2, FileCheck2, Send } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { fmtTanggal, fmtWaktu } from '../data/format';
+import { caseStage } from '../data/stage';
 
 interface Props {
   cases: CaseRecord[];
@@ -35,6 +36,18 @@ const REASONS = [
   'Diberikan di layanan lain atau apotek jejaring (PRB)',
   'Alasan lain (jelaskan)'
 ];
+
+/** Waktu petugas mengirim permintaan ke faskes: surat dibuat, atau tahap diubah ke "Menunggu jawaban faskes". */
+const requestedAt = (c: CaseRecord): { at: string; by: string } | null => {
+  const e = [...(c.audit_log || [])].reverse().find(a => a.action === 'DRAFT_CLARIFICATION_CREATED' || a.action === 'STATUS_CLARIFICATION_DRAFTED');
+  return e && Number.isFinite(Date.parse(e.timestamp)) ? { at: e.timestamp, by: e.user_role || 'Petugas BPJS Kesehatan' } : null;
+};
+const OUTCOME: Record<string, string> = {
+  JAWABAN_DITERIMA: 'Jawaban Anda sudah diterima petugas dan sedang dinilai',
+  DIPERIKSA: 'Petugas sedang memeriksa kembali',
+  DITERUSKAN: 'Petugas meneruskan ke pemeriksaan lanjutan sesuai prosedur',
+  DITUTUP: 'Petugas menutup pemeriksaan ini'
+};
 
 export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRespond }) => {
   const [facilityId, setFacilityId] = useState<string>('');
@@ -101,7 +114,7 @@ export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRes
                   <div><dt className="text-xs text-slate-500">Tanggal layanan</dt><dd className="font-semibold">{fmtTanggal(claim.service_date)}</dd></div>
                   <div className="col-span-2"><dt className="text-xs text-slate-500">Tercatat pada klaim</dt><dd className="font-semibold">{claimSummary(claim)}</dd></div>
                 </dl>)}
-              {(() => { const e = [...(c.audit_log || [])].reverse().find(a => a.action === 'DRAFT_CLARIFICATION_CREATED'); const t = e ? Date.parse(e.timestamp) : NaN; if (!Number.isFinite(t)) return null; return <div className="flex items-center gap-2 text-xs text-slate-600"><CalendarClock className="w-4 h-4 text-sky-700" />Diminta {fmtTanggal(e!.timestamp)} · mohon dijawab sebelum <b>{fmtTanggal(new Date(t + DEADLINE_DAYS * 86400000).toISOString())}</b></div>; })()}
+              {(() => { const r0 = requestedAt(c); if (!r0) return null; const t = Date.parse(r0.at); return <div className="flex items-start gap-2 text-xs text-slate-600"><CalendarClock className="w-4 h-4 text-sky-700 shrink-0 mt-px" /><span>Dikirim petugas <b>{fmtWaktu(r0.at)}</b> ({r0.by}). Mohon dijawab sebelum <b>{fmtTanggal(new Date(t + DEADLINE_DAYS * 86400000).toISOString())}</b>.</span></div>; })()}
               <p className="text-slate-800">{claim ? QUESTION[claim.scenario] : QUESTION.UMUM} Penjelasan Anda membantu kami memastikan pencatatan sudah benar.</p>
               <fieldset className="space-y-1.5">
                 <legend className="text-sm font-semibold text-slate-700 mb-1">Jawaban faskes</legend>
@@ -128,10 +141,12 @@ export const FaskesPortal: React.FC<Props> = ({ cases, claims, facilities, onRes
           <li key={c.case_id} className="card p-4 flex items-start gap-3">
             <FileCheck2 className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
             <div className="text-sm min-w-0">
-              <div className="font-semibold text-slate-900">{c.claim_key} · {fmtTanggal(c.service_date)}</div>
+              <div className="font-semibold text-slate-900">{claims.find(x => x.claim_key === c.claim_key)?.sep_number || c.claim_key} · {fmtTanggal(c.service_date)}</div>
               <div className="text-slate-700 mt-0.5">{c.facility_response?.reason}</div>
               {c.facility_response?.note && <div className="text-slate-500 text-xs mt-0.5">Catatan: {c.facility_response.note}</div>}
-              <div className="text-xs text-emerald-800 font-semibold mt-1.5">Tanda terima KNF-{c.case_id.replace(/^RPT-?/, '')} · diterima {fmtWaktu(c.facility_response?.at)}</div>
+              {(() => { const r0 = requestedAt(c); return r0 ? <div className="text-xs text-slate-600 mt-1.5">Dikirim petugas {fmtWaktu(r0.at)}</div> : null; })()}
+              <div className="text-xs text-emerald-800 font-semibold mt-0.5">Dijawab {fmtWaktu(c.facility_response?.at)} · tanda terima KNF-{c.case_id.replace(/^RPT-?/, '')}</div>
+              <div className="text-xs text-slate-600 mt-1">Status sekarang: {OUTCOME[caseStage(c)] || 'Menunggu petugas'}.</div>
             </div>
           </li>
         ))}

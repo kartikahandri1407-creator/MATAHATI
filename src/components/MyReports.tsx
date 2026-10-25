@@ -2,7 +2,7 @@ import React from 'react';
 import { CaseRecord, DummyClaim } from '../types/matahati';
 import { SCENARIO_LABEL, answerText, claimSummary } from '../data/claimUtils';
 import { PESERTA_STEPS, caseTimeline, caseStage, pesertaMaySeeComparison, pesertaProgress } from '../data/stage';
-import { fmtTanggal } from '../data/format';
+import { fmtTanggal, fmtWaktu } from '../data/format';
 import { PageHeader } from './PageHeader';
 import { Timeline } from './Timeline';
 import { Check, FilePlus2, Lock } from 'lucide-react';
@@ -87,7 +87,7 @@ export const MyReports: React.FC<Props> = ({ cases, claims, onNew }) => {
                   </div>
                 </details>
                 <div className="mt-3 pt-3 border-t border-dashed border-slate-300 flex items-center justify-between text-xs text-slate-500">
-                  <span>Dikirim {fmtTanggal(c.created_at)}</span>
+                  <span>Dikirim {fmtTanggal(c.created_at)}{(() => { const ev = caseTimeline(c, 'peserta'); const last = ev[ev.length - 1]; return last && ev.length > 1 ? ` · diperbarui ${fmtWaktu(last.at)}` : ''; })()}</span>
                   <span className="font-mono">{c.case_id}</span>
                 </div>
               </li>
