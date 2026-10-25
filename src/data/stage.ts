@@ -62,13 +62,14 @@ const ACTION_TITLE: Record<string, { peserta?: string; petugas: string; tone: Ti
   FOLLOW_UP_ANSWERED: { peserta: 'Anda menambah informasi', petugas: 'Pelapor menambah informasi atas pertanyaan lanjutan', tone: 'info' },
   SUBMITTED: { peserta: 'Laporan Anda diterima', petugas: 'Laporan masuk dan dibandingkan dengan klaim', tone: 'info' },
   TRIAGE_COMPLETED: { peserta: 'Laporan Anda diterima', petugas: 'Laporan masuk dan dibandingkan dengan klaim', tone: 'info' },
+  STATUS_UPDATED: { petugas: 'Status diperbarui petugas', tone: 'info' },
   STATUS_NEW: { petugas: 'Dikembalikan ke antrean baru', tone: 'info' },
   STATUS_UNDER_REVIEW: { peserta: 'Mulai diperiksa petugas', petugas: 'Mulai diperiksa', tone: 'wait' },
   STATUS_CLARIFICATION_DRAFTED: { peserta: 'Faskes dimintai konfirmasi', petugas: 'Surat konfirmasi disiapkan untuk faskes', tone: 'wait' },
   DRAFT_CLARIFICATION_CREATED: { peserta: 'Faskes dimintai konfirmasi', petugas: 'Surat konfirmasi dibuat dan dikirim ke faskes', tone: 'wait' },
   FACILITY_RESPONDED: { peserta: 'Faskes sudah menjawab', petugas: 'Faskes menjawab', tone: 'info' },
   STATUS_ESCALATED_FOR_OFFICIAL_PROCESS: { peserta: 'Diteruskan untuk pemeriksaan lanjutan', petugas: 'Diteruskan ke verifikasi lapangan', tone: 'alert' },
-  STATUS_CLOSED_NO_ACTION: { peserta: 'Pemeriksaan selesai', petugas: 'Pemeriksaan ditutup', tone: 'ok' },
+  STATUS_CLOSED_NO_ACTION: { peserta: 'Pemeriksaan selesai', petugas: 'Kasus ditutup', tone: 'ok' },
   DATA_KASUS_DIUBAH: { petugas: 'Data kasus diperbarui petugas', tone: 'info' }
 };
 

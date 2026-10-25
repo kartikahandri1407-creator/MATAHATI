@@ -499,7 +499,7 @@
         "timestamp": "2026-09-25T15:00:00Z",
         "user_role": "Verifikator BPJS KC Bandung",
         "action": "STATUS_UPDATED",
-        "note": "Kasus dipindahkan ke status UNDER_REVIEW untuk dihubungkan dengan pola obat RSUD Sehat Sentosa."
+        "note": "Kasus dipindahkan ke tahap Sedang diperiksa untuk dihubungkan dengan pola obat RSUD Sehat Sentosa."
       },
       {
         "timestamp": "2026-09-26T09:00:00Z",

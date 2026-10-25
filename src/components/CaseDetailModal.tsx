@@ -41,8 +41,12 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
   }, [onClose]);
 
   const [selectedStatus, setSelectedStatus] = useState<VerificationStatus>(caseRecord.verification_status);
-  const [userRole, setUserRole] = useState('Petugas Verifikator Cabang');
+  const [peran, setPeran] = useState('Verifikator');
+  const [namaPetugas, setNamaPetugas] = useState(() => { try { return localStorage.getItem('matahati_nama_petugas') || ''; } catch { return ''; } });
+  const userRole = namaPetugas.trim() ? `${peran} · ${namaPetugas.trim()}` : `Petugas ${peran}`;
+  const ubahNama = (v: string) => { setNamaPetugas(v); try { localStorage.setItem('matahati_nama_petugas', v); } catch { /* abaikan */ } };
   const [statusNote, setStatusNote] = useState('');
+  const [closeOutcome, setCloseOutcome] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Edit Mode state
@@ -59,6 +63,9 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
   const handleSaveStatusChange = () => {
     if (selectedStatus === caseRecord.verification_status && !statusNote) return;
 
+    if (selectedStatus === 'CLOSED_NO_ACTION' && !closeOutcome) return;
+    const outcomeText = selectedStatus === 'CLOSED_NO_ACTION' && closeOutcome ? `Hasil: ${closeOutcome}` : '';
+    const finalNote = [outcomeText, statusNote.trim()].filter(Boolean).join(' · ');
     setIsUpdating(true);
     const updated: CaseRecord = {
       ...caseRecord,
@@ -69,7 +76,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
           timestamp: new Date().toISOString(),
           user_role: userRole,
           action: `STATUS_${selectedStatus}`,
-          note: statusNote.trim() || `Tahap kasus diubah menjadi "${({ NEW: 'Baru masuk', UNDER_REVIEW: 'Sedang diperiksa', CLARIFICATION_DRAFTED: 'Menunggu jawaban faskes', ESCALATED_FOR_OFFICIAL_PROCESS: 'Diteruskan ke lapangan', CLOSED_NO_ACTION: 'Ditutup' } as Record<string, string>)[selectedStatus] || selectedStatus}".`
+          note: finalNote || `Tahap kasus diubah menjadi "${({ NEW: 'Baru masuk', UNDER_REVIEW: 'Sedang diperiksa', CLARIFICATION_DRAFTED: 'Menunggu jawaban faskes', ESCALATED_FOR_OFFICIAL_PROCESS: 'Diteruskan ke lapangan', CLOSED_NO_ACTION: 'Ditutup' } as Record<string, string>)[selectedStatus] || selectedStatus}".`
         }
       ]
     };
@@ -78,6 +85,7 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
       onUpdateStatus(updated);
       setIsUpdating(false);
       setStatusNote('');
+      setCloseOutcome('');
     }, 250);
   };
 
@@ -413,18 +421,30 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                     <option value="NEW">Baru masuk</option>
                     <option value="UNDER_REVIEW">Sedang diperiksa</option>
                     <option value="CLARIFICATION_DRAFTED">Menunggu jawaban faskes</option>
-                    <option value="CLOSED_NO_ACTION">Ditutup (tanpa tindak lanjut)</option>
+                    <option value="CLOSED_NO_ACTION">Ditutup (pemeriksaan selesai)</option>
                     <option value="ESCALATED_FOR_OFFICIAL_PROCESS">Diteruskan ke lapangan</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-600 mb-1">Nama atau jabatan petugas:</label>
-                  <input
-                    type="text"
-                    value={userRole}
-                    onChange={(e) => setUserRole(e.target.value)}
-                    className="w-full rounded border border-slate-300 bg-white p-1.5 text-xs text-slate-800"
-                  />
+                  <label className="block font-medium text-slate-600 mb-1">Peran dan nama petugas pengisi:</label>
+                  <div className="flex gap-1.5">
+                    <select
+                      value={peran}
+                      onChange={(e) => setPeran(e.target.value)}
+                      className="rounded border border-slate-300 bg-white p-1.5 text-xs text-slate-800 font-medium"
+                    >
+                      <option value="Verifikator">Verifikator</option>
+                      <option value="Pemeriksa Lapangan">Pemeriksa Lapangan</option>
+                      <option value="Supervisor">Supervisor</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={namaPetugas}
+                      onChange={(e) => ubahNama(e.target.value)}
+                      placeholder="Nama petugas (bisa diubah)"
+                      className="min-w-0 flex-1 rounded border border-slate-300 bg-white p-1.5 text-xs text-slate-800"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -433,10 +453,25 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                   NEW: 'Belum disentuh petugas. Peserta melihat "Diterima".',
                   UNDER_REVIEW: 'Petugas sedang menelaah. Faskes belum diminta menjawab. Peserta melihat "Diperiksa petugas".',
                   CLARIFICATION_DRAFTED: 'Kasus muncul di ruang Faskes sebagai permintaan konfirmasi (tanpa identitas peserta). Setelah faskes menjawab, kasus kembali ke Anda sebagai "Jawaban faskes diterima".',
-                  ESCALATED_FOR_OFFICIAL_PROCESS: 'Dilanjutkan ke pemeriksaan lapangan resmi di luar MATA HATI. Peserta melihat bahwa laporannya diteruskan.',
-                  CLOSED_NO_ACTION: 'Pemeriksaan selesai tanpa tindak lanjut. Peserta melihat "Selesai".'
+                  ESCALATED_FOR_OFFICIAL_PROCESS: 'Dilanjutkan ke pemeriksaan lapangan resmi di luar MATA HATI. Peserta melihat bahwa laporannya diteruskan. Setelah pemeriksaan lapangan selesai, ubah tahap ke "Ditutup" dan pilih hasilnya; jangan memilih tahap ini lagi hanya untuk menulis hasil.',
+                  CLOSED_NO_ACTION: 'Pemeriksaan selesai (termasuk setelah pemeriksaan lapangan). Pilih hasilnya di bawah. Peserta hanya melihat "Selesai"; hasil tidak dibuka ke peserta.'
                 } as Record<string, string>)[selectedStatus]}
               </div>
+              {selectedStatus === 'CLOSED_NO_ACTION' && (
+                <div>
+                  <label className="block font-medium text-slate-600 mb-1 text-xs">Hasil pemeriksaan (wajib saat menutup kasus):</label>
+                  <select
+                    value={closeOutcome}
+                    onChange={(e) => setCloseOutcome(e.target.value)}
+                    className="w-full rounded border border-slate-300 bg-white p-1.5 text-xs text-slate-800 font-medium"
+                  >
+                    <option value="">Pilih hasil…</option>
+                    <option value="Tidak ditemukan masalah">Tidak ditemukan masalah</option>
+                    <option value="Ditemukan ketidaksesuaian, dilanjutkan sesuai prosedur">Ditemukan ketidaksesuaian, dilanjutkan sesuai prosedur</option>
+                    <option value="Belum dapat dipastikan">Belum dapat dipastikan</option>
+                  </select>
+                </div>
+              )}
               <div>
                 <input
                   type="text"
@@ -451,8 +486,8 @@ export const CaseDetailModal: React.FC<CaseDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveStatusChange}
-                  disabled={isUpdating}
-                  className="px-3.5 py-1.5 rounded bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold"
+                  disabled={isUpdating || (selectedStatus === 'CLOSED_NO_ACTION' && !closeOutcome)}
+                  className="px-3.5 py-1.5 rounded bg-slate-800 disabled:opacity-50 hover:bg-slate-900 text-white text-xs font-semibold"
                 >
                   {isUpdating ? 'Menyimpan...' : 'Simpan tahap'}
                 </button>
